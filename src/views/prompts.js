@@ -90,11 +90,14 @@ export function attachPromptsHandlers() {
   const saveBtn = editor.querySelector('.save-prompt-btn')
 
   if (nameInput) {
+    let nameDebounce
     nameInput.addEventListener('input', event => {
       const promptId = state.currentEditingPromptId || state.activePromptId
       const prompt = state.systemPrompts.find(item => item.id === promptId)
       if (prompt) {
         prompt.name = event.target.value
+        clearTimeout(nameDebounce)
+        nameDebounce = setTimeout(() => persist(), 400)
       }
     })
   }

@@ -1,4 +1,4 @@
-import { state, getCurrentChat, persist, getActiveSystemPrompt } from '../state.js'
+import { state, getCurrentChat, persist, getActiveSystemPrompt, newChat } from '../state.js'
 import { getProviderOrder, getAllProviders } from '../providers.js'
 import { routeMessage } from '../router.js'
 import { renderMarkdown, attachCopyHandlers } from '../markdown.js'
@@ -6,6 +6,7 @@ import { renderMarkdown, attachCopyHandlers } from '../markdown.js'
 let handleDocumentClick = null
 let handleResponseCopyClick = null
 let responseCopyContainer = null
+const responseCopyMap = new Map()
 
 export function renderChatView() {
   const chat = getCurrentChat()
@@ -138,8 +139,11 @@ export function attachChatHandlers() {
     handleResponseCopyClick = event => {
       const button = event.target.closest('.copy-response-btn')
       if (!button || !responseCopyContainer.contains(button)) return
-      const text = button.dataset.copy || ''
-      navigator.clipboard.writeText(text).catch(() => {})
+      const id = button.dataset.copyId
+      const text = id ? (responseCopyMap.get(id) || '') : ''
+      if (text) {
+        navigator.clipboard.writeText(text).catch(() => {})
+      }
     }
 
     messagesContainer.addEventListener('click', handleResponseCopyClick)
@@ -173,7 +177,12 @@ async function handleSendMessage() {
   input.value = ''
   autoResizeTextarea(input)
 
-  const chat = getCurrentChat()
+  let chat = getCurrentChat()
+  if (!chat) {
+    newChat()
+    state.currentView = 'chat'
+    chat = getCurrentChat()
+  }
   if (!chat) return
 
   chat.messages.push({
@@ -214,8 +223,12 @@ async function handleSendMessage() {
     const result = await routeMessage(chat.messages, chunk => {
       fullText += chunk
 
+      // Re-query on every chunk — handles navigation
+      const container = document.getElementById('chat-messages')
+      if (!container) return // navigated away, bail
+
       const thinkingEl = document.getElementById('ai-thinking')
-      if (thinkingEl && messagesContainer) {
+      if (thinkingEl && container.contains(thinkingEl)) {
         thinkingEl.replaceWith(
           ...parseAiMessageHtml(
             renderAssistantMessage(
@@ -231,7 +244,7 @@ async function handleSendMessage() {
           )
         )
 
-        messagesContainer.scrollTop = messagesContainer.scrollHeight
+        container.scrollTop = container.scrollHeight
       }
     })
 
@@ -247,10 +260,17 @@ async function handleSendMessage() {
       tokens: result.tokens
     })
 
+    const finalContainer = document.getElementById('chat-messages')
+
     const thinkingEl = document.getElementById('ai-thinking')
     if (thinkingEl && fullText) {
       const bubble = thinkingEl.querySelector('.message-card')
       if (bubble) {
+        const copyId = (() => {
+          const id = 'r-' + Math.random().toString(36).slice(2, 8)
+          responseCopyMap.set(id, fullText)
+          return id
+        })()
         bubble.innerHTML = `
           <div class="message-meta">
             <span class="message-provider">
@@ -269,7 +289,7 @@ async function handleSendMessage() {
               class="btn-icon btn-icon--subtle copy-response-btn"
               title="Copy response"
               type="button"
-              data-copy="${escapeAttribute(fullText)}"
+              data-copy-id="${copyId}"
             >
               ${copyIcon()}
             </button>
@@ -279,8 +299,8 @@ async function handleSendMessage() {
       }
     } else {
       if (thinkingEl) thinkingEl.remove()
-      if (messagesContainer) {
-        messagesContainer.insertAdjacentHTML(
+      if (finalContainer) {
+        finalContainer.insertAdjacentHTML(
           'beforeend',
           renderAssistantMessage(fullText, {
             providerId: result.providerId,
@@ -291,10 +311,10 @@ async function handleSendMessage() {
       }
     }
 
-    if (messagesContainer) {
-      messagesContainer.scrollTop =
-        messagesContainer.scrollHeight
-      attachCopyHandlers(messagesContainer)
+    if (finalContainer) {
+      finalContainer.scrollTop =
+        finalContainer.scrollHeight
+      attachCopyHandlers(finalContainer)
     }
 
     persist()
@@ -329,8 +349,45 @@ async function handleSendMessage() {
     updateSendButton()
     updateTokenFooter()
     persist()
-    if (shouldRefreshApp && state.currentView === 'chat') {
-      window.app?.renderApp?.()
+    
+    // Only update the chat history list in the sidebar
+    // not the entire app — much lighter
+    const historyEl = document.getElementById('chat-history')
+    if (historyEl) {
+      const chats = state.chats || []
+      const currentId = state.currentChatId
+
+      historyEl.innerHTML = chats.map(chat => {
+        const firstMsg = chat.messages?.find(m => m.role === 'user')?.content?.trim() || 'New chat'
+        const preview = firstMsg.length > 54 ? firstMsg.slice(0, 51) + '...' : firstMsg
+        const isActive = chat.id === currentId
+        const date = new Date(chat.createdAt)
+        const now = new Date()
+        const timeStr = date.toDateString() === now.toDateString()
+          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Yesterday'
+
+        return `
+          <li class="chat-item ${isActive ? 'active' : ''}"
+            data-chat-id="${chat.id}">
+            <div class="chat-item-content">
+              <div class="chat-preview">
+                ${escapeHtml(preview)}
+              </div>
+              <div class="chat-time">${timeStr}</div>
+            </div>
+          </li>
+        `
+      }).join('')
+
+      // Re-attach click handlers on the new items
+      historyEl.querySelectorAll('.chat-item').forEach(item => {
+        item.addEventListener('click', () => {
+          state.currentChatId = item.dataset.chatId
+          state.currentView = 'chat'
+          window.app?.renderApp?.()
+        })
+      })
     }
   }
 }
@@ -405,6 +462,12 @@ function renderAssistantMessage(content, metadata = {}) {
     stats.push(typeof metadata.latency === 'number' ? `${metadata.latency}ms` : metadata.latency)
   }
 
+  const copyId = (() => {
+    const id = 'r-' + Math.random().toString(36).slice(2, 8)
+    responseCopyMap.set(id, content)
+    return id
+  })()
+
   return `
     <article class="chat-message chat-message--assistant" ${metadata.id ? `id="${metadata.id}"` : ''}>
       <div class="message-card">
@@ -418,7 +481,7 @@ function renderAssistantMessage(content, metadata = {}) {
             class="btn-icon btn-icon--subtle copy-response-btn"
             title="Copy response"
             type="button"
-            data-copy="${escapeAttribute(content)}"
+            data-copy-id="${copyId}"
           >
             ${copyIcon()}
           </button>

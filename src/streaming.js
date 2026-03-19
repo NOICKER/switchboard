@@ -53,6 +53,28 @@ export async function streamOpenAI(url, headers, body, onChunk) {
       }
     }
 
+    // Flush any remaining buffered data after stream ends
+    if (buffer.trim()) {
+      const lines = buffer.split('\n')
+      for (const line of lines) {
+        if (!line.trim() || line.startsWith(':')) continue
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') continue
+          try {
+            const json = JSON.parse(data)
+            const chunk = json.choices?.[0]?.delta?.content
+            if (chunk) {
+              onChunk(chunk)
+              tokens += Math.ceil(chunk.length / 4)
+            }
+          } catch(e) {
+            // ignore malformed final line
+          }
+        }
+      }
+    }
+
     return {
       text: '',
       tokens,
