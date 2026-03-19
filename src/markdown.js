@@ -39,11 +39,14 @@ export function renderMarkdown(text) {
 
   let html = ''
   try {
-    html = window.marked.parse(text, {
+    const raw = window.marked.parse(text, {
       renderer,
       breaks: false,
       gfm: true
     })
+    html = window.DOMPurify
+      ? window.DOMPurify.sanitize(raw)
+      : raw
   } catch (e) {
     console.error('Markdown parsing failed:', e)
     html = '<p class="error">' + escapeHtml(text) + '</p>'
