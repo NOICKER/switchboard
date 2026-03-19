@@ -8,3 +8,26 @@ Port 4173 is in use, trying another one...
 
   [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4174[22m/[39m
 [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m2:19:43 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/streaming.js[22m
+[2m2:19:50 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/prompts.js[22m
+[2m2:19:58 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:20:12 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:20:19 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:20:35 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/streaming.js[22m
+[2m2:20:35 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/prompts.js[22m
+[2m2:20:35 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:20:42 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:20:43 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:20:51 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:20:59 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:21:03 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:21:04 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:21:08 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:21:26 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:21:27 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:21:27 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/views/chat.js[22m
+[2m2:34:38 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mindex.html[22m
+[2m2:34:38 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/markdown.js[22m
+[2m2:35:34 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mindex.html[22m
+[2m2:35:34 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/markdown.js[22m
+[2m2:42:45 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/state.js[22m
