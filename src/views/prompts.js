@@ -29,7 +29,7 @@ export function renderPromptsView() {
         </aside>
 
         <section class="prompts-editor">
-          ${selectedPrompt ? renderPromptEditor(selectedPrompt) : renderNoPromptSelected()}
+          ${selectedPrompt ? renderPromptEditor(selectedPrompt, activePrompt) : renderNoPromptSelected()}
         </section>
       </div>
     </div>
@@ -80,18 +80,24 @@ export function attachPromptsHandlers() {
 
   if (nameInput) {
     nameInput.addEventListener('input', event => {
-      const prompt = state.systemPrompts.find(item => item.id === state.activePromptId)
+      const promptId = state.currentEditingPromptId || state.activePromptId
+      const prompt = state.systemPrompts.find(item => item.id === promptId)
       if (prompt) {
         prompt.name = event.target.value
+        state.currentEditingPromptId = prompt.id
+        state.activePromptId = prompt.id
       }
     })
   }
 
   if (contentInput) {
     contentInput.addEventListener('input', event => {
-      const prompt = state.systemPrompts.find(item => item.id === state.activePromptId)
+      const promptId = state.currentEditingPromptId || state.activePromptId
+      const prompt = state.systemPrompts.find(item => item.id === promptId)
       if (prompt) {
         prompt.content = event.target.value
+        state.currentEditingPromptId = prompt.id
+        state.activePromptId = prompt.id
         updateTokenCount()
       }
     })
@@ -104,7 +110,13 @@ export function attachPromptsHandlers() {
   if (setActiveBtn) {
     setActiveBtn.addEventListener('click', event => {
       event.preventDefault()
+      const editingId = state.currentEditingPromptId || state.activePromptId
+      if (!editingId) return
+
+      state.activePromptId = editingId
+      state.currentEditingPromptId = editingId
       persist()
+      reRenderPrompts()
       flashButtonLabel(setActiveBtn, 'Active')
     })
   }
@@ -141,7 +153,9 @@ function renderPromptsList(prompts, activePromptId) {
   `).join('')
 }
 
-function renderPromptEditor(prompt) {
+function renderPromptEditor(prompt, activePromptId) {
+  const isActive = prompt.id === activePromptId
+
   return `
     <div id="prompt-editor" class="prompt-editor">
       <header class="editor-topbar">
@@ -156,7 +170,9 @@ function renderPromptEditor(prompt) {
         </div>
 
         <div class="editor-actions">
-          <button class="set-active-btn btn-secondary" type="button">Set Active</button>
+          <button class="set-active-btn btn-secondary" type="button" ${isActive ? 'disabled' : ''}>
+            ${isActive ? 'Active' : 'Set Active'}
+          </button>
           <button class="save-prompt-btn btn-primary" type="button">Save</button>
         </div>
       </header>
@@ -196,6 +212,7 @@ function handleNewPrompt() {
 
   state.systemPrompts.push(prompt)
   state.activePromptId = id
+  state.currentEditingPromptId = id
   persist()
   reRenderPrompts()
 }

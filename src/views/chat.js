@@ -4,6 +4,8 @@ import { routeMessage } from '../router.js'
 import { renderMarkdown, attachCopyHandlers } from '../markdown.js'
 
 let handleDocumentClick = null
+let handleResponseCopyClick = null
+let responseCopyContainer = null
 
 export function renderChatView() {
   const chat = getCurrentChat()
@@ -126,7 +128,21 @@ export function attachChatHandlers() {
 
   if (messagesContainer) {
     attachCopyHandlers(messagesContainer)
-    attachResponseCopyHandlers(messagesContainer)
+
+    // Ensure we only ever attach one response-copy listener per container.
+    if (responseCopyContainer && handleResponseCopyClick) {
+      responseCopyContainer.removeEventListener('click', handleResponseCopyClick)
+    }
+
+    responseCopyContainer = messagesContainer
+    handleResponseCopyClick = event => {
+      const button = event.target.closest('.copy-response-btn')
+      if (!button || !responseCopyContainer.contains(button)) return
+      const text = button.dataset.copy || ''
+      navigator.clipboard.writeText(text).catch(() => {})
+    }
+
+    messagesContainer.addEventListener('click', handleResponseCopyClick)
   }
 
   if (handleDocumentClick) {
@@ -191,6 +207,8 @@ async function handleSendMessage() {
   try {
     let fullText = ''
 
+    const activeProvider = getActiveProvider()
+
     const result = await routeMessage(chat.messages, chunk => {
       fullText += chunk
 
@@ -202,7 +220,8 @@ async function handleSendMessage() {
               fullText,
               {
                 id: 'ai-thinking',
-                providerId: state.providerOverride || getActiveProvider().name,
+                providerId: activeProvider.id,
+                providerLabel: activeProvider.name,
                 tokens: Math.ceil(fullText.length / 4),
                 latency: 'Streaming'
               }
@@ -242,7 +261,6 @@ async function handleSendMessage() {
       )
       messagesContainer.scrollTop = messagesContainer.scrollHeight
       attachCopyHandlers(messagesContainer)
-      attachResponseCopyHandlers(messagesContainer)
     }
 
     persist()
@@ -338,7 +356,7 @@ function renderUserMessage(content) {
 }
 
 function renderAssistantMessage(content, metadata = {}) {
-  const providerLabel = metadata.providerId || 'Assistant'
+  const providerLabel = metadata.providerLabel || metadata.providerId || 'Assistant'
   const stats = []
 
   if (metadata.tokens !== undefined) {
@@ -480,21 +498,6 @@ function updateSendButton() {
 
   button.disabled = state.sending
   button.querySelector('.send-text').textContent = state.sending ? 'Sending...' : 'Send'
-}
-
-function attachResponseCopyHandlers(container) {
-  const buttons = container.querySelectorAll('.copy-response-btn')
-
-  buttons.forEach(button => {
-    button.removeEventListener('click', handleResponseCopy)
-    button.addEventListener('click', handleResponseCopy)
-  })
-}
-
-function handleResponseCopy(event) {
-  const button = event.currentTarget
-  const text = button.dataset.copy || ''
-  navigator.clipboard.writeText(text).catch(() => {})
 }
 
 function updateTokenFooter() {

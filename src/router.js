@@ -1,5 +1,5 @@
-import { state, addLog } from './state.js'
-import { getProviderOrder, getApiKey, callProvider } from './providers.js'
+import { state, addLog, incrementUsage } from './state.js'
+import { getProviderOrder, getApiKey, callProvider, getAllProviders } from './providers.js'
 import { isHealthy } from './health.js'
 
 export async function routeMessage(messages, onChunk) {
@@ -29,6 +29,7 @@ async function routeSequential(messages, onChunk) {
     try {
       const result = await callProvider(providerId, messages, apiKey, onChunk)
       const latency = Date.now() - startMs
+      const providerLabel = getAllProviders()[providerId]?.name || providerId
 
       addLog({
         timestamp: new Date().toISOString(),
@@ -40,7 +41,9 @@ async function routeSequential(messages, onChunk) {
         messages
       })
 
-      return { ...result, providerId, latency }
+      incrementUsage(providerId)
+
+      return { ...result, providerId, providerLabel, latency }
     } catch (e) {
       const latency = Date.now() - startMs
       addLog({
@@ -80,6 +83,7 @@ async function routePool(messages, onChunk) {
         try {
           const result = await callProvider(providerId, messages, apiKey, onChunk)
           const latency = Date.now() - startMs
+          const providerLabel = getAllProviders()[providerId]?.name || providerId
 
           addLog({
             timestamp: new Date().toISOString(),
@@ -94,6 +98,7 @@ async function routePool(messages, onChunk) {
           return {
             ...result,
             providerId,
+            providerLabel,
             latency,
             isWinner: true
           }
@@ -119,5 +124,7 @@ async function routePool(messages, onChunk) {
     throw new Error('No healthy providers available')
   }
 
-  return Promise.any(races)
+  const winner = await Promise.any(races)
+  incrementUsage(winner.providerId)
+  return winner
 }

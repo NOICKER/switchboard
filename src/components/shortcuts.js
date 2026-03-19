@@ -1,12 +1,18 @@
 import { state, newChat, persist } from '../state.js'
 import { showToast } from './toast.js'
 
+let shortcutsAttached = false
+
 export function attachKeyboardShortcuts() {
+  if (shortcutsAttached) return
   document.addEventListener('keydown', handleGlobalKeydown)
+  shortcutsAttached = true
 }
 
 export function removeKeyboardShortcuts() {
+  if (!shortcutsAttached) return
   document.removeEventListener('keydown', handleGlobalKeydown)
+  shortcutsAttached = false
 }
 
 function handleGlobalKeydown(evt) {

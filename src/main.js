@@ -47,7 +47,6 @@ export function renderApp() {
   // Attach all handlers
   attachTopnavHandlers()
   attachSidebarHandlers()
-  attachKeyboardShortcuts()
   attachCurrentViewHandlers()
 }
 
@@ -92,6 +91,7 @@ function attachCurrentViewHandlers() {
 document.addEventListener('DOMContentLoaded', () => {
   loadState()
   renderApp()
+  attachKeyboardShortcuts()
 
   // Re-render on state changes from other tabs
   window.addEventListener('storage', () => {
