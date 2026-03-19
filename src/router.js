@@ -34,7 +34,7 @@ async function routeSequential(messages, onChunk) {
       addLog({
         timestamp: new Date().toISOString(),
         providerId,
-        model: state.apiKeys[providerId] ? 'via API' : 'custom',
+        model: getAllProviders()[providerId]?.model || providerId,
         latency,
         tokens: result.tokens,
         status: 'ok',
@@ -49,7 +49,7 @@ async function routeSequential(messages, onChunk) {
       addLog({
         timestamp: new Date().toISOString(),
         providerId,
-        model: 'error',
+        model: getAllProviders()[providerId]?.model || providerId,
         latency,
         tokens: 0,
         status: 'error',
@@ -88,7 +88,7 @@ async function routePool(messages, onChunk) {
           addLog({
             timestamp: new Date().toISOString(),
             providerId,
-            model: 'via API',
+            model: getAllProviders()[providerId]?.model || providerId,
             latency,
             tokens: result.tokens,
             status: 'ok',
@@ -107,7 +107,7 @@ async function routePool(messages, onChunk) {
           addLog({
             timestamp: new Date().toISOString(),
             providerId,
-            model: 'error',
+            model: getAllProviders()[providerId]?.model || providerId,
             latency,
             tokens: 0,
             status: 'raced',

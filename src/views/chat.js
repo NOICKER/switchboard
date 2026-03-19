@@ -523,7 +523,7 @@ function parseChatHtml(html) {
 function parseAiMessageHtml(html) {
   const container = document.createElement('div')
   container.innerHTML = html
-  return container.childNodes
+  return [...container.childNodes]
 }
 
 function escapeHtml(text) {

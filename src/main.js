@@ -6,6 +6,7 @@ import './styles/settings.css'
 import './styles/prompts.css'
 import './styles/logs.css'
 import './styles/usage.css'
+import './styles/toast.css'
 
 import { state, persist, loadState } from './state.js'
 import { renderSidebar, attachSidebarHandlers } from './components/sidebar.js'
