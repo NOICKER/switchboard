@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Prompts - Switchboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#833cf6",
+          "background-light": "#f7f5f8",
+          "background-dark": "#0A0A0A", 
+          "surface-dark": "#121212",
+          "text-main": "#EDEDED",
+          "text-muted": "#A1A1AA",
+          "border-muted": "#27272A",
+          "accent-blue": "#3B82F6",
+        },
+        fontFamily: {
+          "display": ["Inter", "sans-serif"],
+          "mono": ["JetBrains Mono", "monospace"]
+        },
+        borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem", "sm": "0.125rem"},
+      },
+    },
+  }
+</script>
+<style>
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #0A0A0A;
+    color: #EDEDED;
+  }
+  
+  /* Custom Scrollbar for a cleaner look */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0A0A0A; 
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #27272A; 
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #52525b; 
+  }
+</style>
+</head>
+<body class="bg-background-dark text-text-main h-screen flex overflow-hidden selection:bg-primary/30">
+<!-- Left Sidebar (200px) -->
+<aside class="w-[200px] flex-shrink-0 border-r border-border-muted bg-background-dark flex flex-col h-full">
+<!-- Sidebar Header -->
+<div class="h-12 flex items-center px-4 border-b border-border-muted flex-shrink-0">
+<h1 class="font-display font-medium text-sm tracking-tight text-text-main">System Prompts</h1>
+</div>
+<!-- Prompts List -->
+<div class="flex-1 overflow-y-auto py-2 px-2 space-y-1">
+<!-- List Item (Inactive) -->
+<button class="w-full text-left h-8 px-2 flex items-center rounded-sm text-text-muted hover:text-text-main hover:bg-surface-dark transition-colors group">
+<span class="font-display text-sm truncate">Default Assistant</span>
+</button>
+<!-- List Item (Active Editor) -->
+<button class="w-full text-left h-8 px-2 flex items-center justify-between rounded-sm text-text-main bg-surface-dark border border-border-muted transition-colors">
+<span class="font-display text-sm font-medium truncate">Code Reviewer</span>
+<!-- Active Global Indicator (Dot) -->
+<span class="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 ml-2" title="Currently Active Prompt"></span>
+</button>
+<!-- List Item (Inactive) -->
+<button class="w-full text-left h-8 px-2 flex items-center rounded-sm text-text-muted hover:text-text-main hover:bg-surface-dark transition-colors">
+<span class="font-display text-sm truncate">Copywriter</span>
+</button>
+<!-- List Item (Inactive) -->
+<button class="w-full text-left h-8 px-2 flex items-center rounded-sm text-text-muted hover:text-text-main hover:bg-surface-dark transition-colors">
+<span class="font-display text-sm truncate">JSON Formatter</span>
+</button>
+</div>
+<!-- Sidebar Footer (New Prompt) -->
+<div class="p-4 border-t border-border-muted flex-shrink-0">
+<button class="w-full h-8 flex items-center justify-center gap-2 rounded-sm text-text-muted hover:text-text-main border border-dashed border-border-muted hover:border-text-muted transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span class="font-display text-sm font-medium">New Prompt</span>
+</button>
+</div>
+</aside>
+<!-- Right Editor Pane (Flex 1) -->
+<main class="flex-1 flex flex-col h-full bg-background-dark min-w-0">
+<!-- Editor Header -->
+<header class="h-12 flex items-center justify-between px-6 border-b border-border-muted flex-shrink-0 bg-background-dark/80 backdrop-blur-sm z-10">
+<div class="flex items-center gap-3">
+<input class="bg-transparent border-none p-0 focus:ring-0 font-display font-medium text-sm text-text-main w-64 placeholder-text-muted/50" placeholder="Prompt Name..." type="text" value="Code Reviewer"/>
+<!-- Active Badge -->
+<div class="flex h-5 items-center justify-center rounded-sm bg-primary/10 px-2 border border-primary/20">
+<span class="text-primary text-xs font-medium font-display tracking-wide uppercase">Active Context</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-xs text-text-muted font-display opacity-0 transition-opacity" id="save-status">Saved just now</span>
+<button class="h-7 px-3 flex items-center justify-center rounded-sm bg-surface-dark border border-border-muted text-text-main text-xs font-medium font-display hover:border-text-main hover:bg-border-muted transition-colors focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+          Save
+        </button>
+</div>
+</header>
+<!-- Editor Area -->
+<div class="flex-1 p-6 flex flex-col">
+<textarea class="w-full flex-1 bg-surface-dark border border-border-muted rounded-sm p-4 font-mono text-[13px] leading-relaxed text-text-muted focus:text-text-main focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none transition-colors" placeholder="Enter system instructions here. These will be injected before the user's prompt..." spellcheck="false">You are an expert software engineer and code reviewer. Your task is to review the provided code snippets or pull requests.
+
+Focus on:
+1. Performance bottlenecks
+2. Security vulnerabilities
+3. Readability and maintainability
+4. Adherence to idiomatic patterns for the given language
+
+When providing feedback:
+- Be direct and constructive.
+- Provide code examples for suggested improvements.
+- If the code is good, explicitly state what is done well.
+- Format all code suggestions using markdown code blocks with the appropriate language tag.
+
+Do not write introductory or concluding pleasantries. Output only the review.</textarea>
+<!-- Token Counter / Footer Info -->
+<div class="flex items-center justify-end mt-2">
+<p class="font-mono text-[11px] text-text-muted">Approx. 128 tokens</p>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Switchboard - Logs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#833cf6",
+                        "background-light": "#f7f5f8",
+                        "background-dark": "#0A0A0A",
+                        "surface": "#121212",
+                        "surface-hover": "#1c1c1c",
+                        "border-muted": "#27272A",
+                        "text-muted": "#A1A1AA",
+                        "text-default": "#EDEDED",
+                        "status-green": "#10B981",
+                        "status-amber": "#F59E0B",
+                        "status-red": "#EF4444",
+                        "bg-red": "#3F1616"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "sm": "0.25rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0A0A0A;
+            color: #EDEDED;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0A0A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272A;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+
+        .table-row-hover:hover td {
+            color: #ffffff;
+        }
+        
+        /* Hide scrollbar for clean UI but allow scroll */
+        .hide-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-text-default min-h-screen flex font-display selection:bg-primary/30">
+<!-- SideNavBar Component -->
+<div class="w-60 border-r border-border-muted flex flex-col bg-background-dark shrink-0 h-screen sticky top-0">
+<div class="p-6 flex flex-col gap-1">
+<h1 class="text-text-default text-base font-medium tracking-tight">Switchboard</h1>
+<p class="text-text-muted text-sm font-normal">Local-first router</p>
+</div>
+<div class="flex flex-col gap-1 px-3 flex-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-sm text-text-muted hover:text-text-default hover:bg-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+<span class="text-sm font-medium">Chat</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-sm text-text-muted hover:text-text-default hover:bg-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">key</span>
+<span class="text-sm font-medium">Provider Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-sm text-text-muted hover:text-text-default hover:bg-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+<span class="text-sm font-medium">System Prompts</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-sm bg-surface text-text-default" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">list_alt</span>
+<span class="text-sm font-medium">Logs</span>
+</a>
+</div>
+<div class="p-4 border-t border-border-muted">
+<div class="flex items-center gap-3 px-3 py-2">
+<div class="w-2 h-2 rounded-full bg-status-green"></div>
+<span class="text-xs text-text-muted font-medium">System Online</span>
+</div>
+</div>
+</div>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden">
+<!-- Header & Filters -->
+<header class="px-8 py-6 border-b border-border-muted bg-background-dark z-10 sticky top-0 shrink-0 flex items-end justify-between">
+<div class="flex flex-col gap-2">
+<h2 class="text-2xl font-medium tracking-tight">Logs</h2>
+<p class="text-text-muted text-sm">Real-time request telemetry and token tracking.</p>
+</div>
+<!-- Segmented Control -->
+<div class="flex h-8 bg-surface border border-border-muted rounded-sm p-0.5">
+<label class="flex items-center justify-center px-4 rounded-sm cursor-pointer has-[:checked]:bg-border-muted has-[:checked]:text-text-default text-text-muted text-xs font-medium transition-colors">
+<span>All</span>
+<input checked="" class="hidden" name="log-filter" type="radio"/>
+</label>
+<label class="flex items-center justify-center px-4 rounded-sm cursor-pointer has-[:checked]:bg-border-muted has-[:checked]:text-text-default text-text-muted text-xs font-medium transition-colors">
+<span>Groq</span>
+<input class="hidden" name="log-filter" type="radio"/>
+</label>
+<label class="flex items-center justify-center px-4 rounded-sm cursor-pointer has-[:checked]:bg-border-muted has-[:checked]:text-text-default text-text-muted text-xs font-medium transition-colors">
+<span>Gemini</span>
+<input class="hidden" name="log-filter" type="radio"/>
+</label>
+<label class="flex items-center justify-center px-4 rounded-sm cursor-pointer has-[:checked]:bg-border-muted has-[:checked]:text-text-default text-text-muted text-xs font-medium transition-colors">
+<span>Errors</span>
+<input class="hidden" name="log-filter" type="radio"/>
+</label>
+</div>
+</header>
+<!-- Data Grid -->
+<div class="flex-1 overflow-auto hide-scroll relative">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-background-dark z-20 shadow-[0_1px_0_0_#27272A]">
+<tr>
+<th class="py-3 px-8 text-xs font-medium text-text-muted w-32">Time</th>
+<th class="py-3 px-4 text-xs font-medium text-text-muted w-32">Provider</th>
+<th class="py-3 px-4 text-xs font-medium text-text-muted">Model</th>
+<th class="py-3 px-4 text-xs font-medium text-text-muted w-32 text-right">Latency</th>
+<th class="py-3 px-8 text-xs font-medium text-text-muted w-32 text-right">Tokens</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-muted text-sm">
+<!-- Row 1: Fast Success -->
+<tr class="group cursor-pointer hover:bg-surface transition-colors table-row-hover">
+<td class="py-3 px-8 font-mono text-text-muted text-xs group-hover:text-text-default transition-colors">14:32:01</td>
+<td class="py-3 px-4 text-text-muted group-hover:text-text-default transition-colors">Groq</td>
+<td class="py-3 px-4 text-text-muted group-hover:text-text-default transition-colors">llama3-8b-8192</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex items-center px-2 py-0.5 rounded-sm bg-surface border border-border-muted text-status-green text-xs font-mono">
+                                245ms
+                            </span>
+</td>
+<td class="py-3 px-8 text-right font-mono text-text-muted text-xs group-hover:text-text-default transition-colors">1,024</td>
+</tr>
+<!-- Row 2: Slow Success (Expanded State Mock) -->
+<tr class="bg-surface border-l-2 border-l-primary cursor-pointer">
+<td class="py-3 px-8 font-mono text-text-default text-xs">14:31:15</td>
+<td class="py-3 px-4 text-text-default">Gemini</td>
+<td class="py-3 px-4 text-text-default">gemini-1.5-pro</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex items-center px-2 py-0.5 rounded-sm bg-background-dark border border-border-muted text-status-amber text-xs font-mono">
+                                2,150ms
+                            </span>
+</td>
+<td class="py-3 px-8 text-right font-mono text-text-default text-xs">8,432</td>
+</tr>
+<!-- Expanded JSON Payload -->
+<tr class="bg-background-dark">
+<td class="p-0 border-b border-border-muted" colspan="5">
+<div class="px-8 py-6 flex gap-6 border-l-2 border-l-primary/50 bg-[#0c0c0c]">
+<div class="flex-1 space-y-2">
+<span class="text-xs text-text-muted font-medium uppercase tracking-wider">Request Payload</span>
+<div class="bg-surface rounded-sm border border-border-muted p-4 overflow-x-auto">
+<pre class="font-mono text-xs text-text-muted leading-relaxed">
+{
+  <span class="text-primary">"model"</span>: <span class="text-status-green">"gemini-1.5-pro"</span>,
+  <span class="text-primary">"messages"</span>: [
+    {
+      <span class="text-primary">"role"</span>: <span class="text-status-green">"system"</span>,
+      <span class="text-primary">"content"</span>: <span class="text-status-green">"You are an expert code reviewer..."</span>
+    },
+    {
+      <span class="text-primary">"role"</span>: <span class="text-status-green">"user"</span>,
+      <span class="text-primary">"content"</span>: <span class="text-status-green">"Review this PR focusing on security..."</span>
+    }
+  ],
+  <span class="text-primary">"temperature"</span>: <span class="text-status-amber">0.2</span>
+}</pre>
+</div>
+</div>
+<div class="flex-1 space-y-2">
+<span class="text-xs text-text-muted font-medium uppercase tracking-wider">Response Headers</span>
+<div class="bg-surface rounded-sm border border-border-muted p-4 overflow-x-auto">
+<pre class="font-mono text-xs text-text-muted leading-relaxed">
+{
+  <span class="text-primary">"x-ratelimit-remaining"</span>: <span class="text-status-amber">145</span>,
+  <span class="text-primary">"cf-ray"</span>: <span class="text-status-green">"8b5a1f..."</span>,
+  <span class="text-primary">"server"</span>: <span class="text-status-green">"Google Frontend"</span>,
+  <span class="text-primary">"content-type"</span>: <span class="text-status-green">"application/json"</span>
+}</pre>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 3: Error State -->
+<tr class="bg-bg-red/40 group cursor-pointer hover:bg-bg-red/60 transition-colors border-l-2 border-l-status-red table-row-hover">
+<td class="py-3 px-8 font-mono text-status-red text-xs">14:28:44</td>
+<td class="py-3 px-4 text-status-red">OpenRouter</td>
+<td class="py-3 px-4 text-status-red">anthropic/claude-3-opus</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex items-center px-2 py-0.5 rounded-sm bg-bg-red border border-status-red/30 text-status-red text-xs font-mono">
+                                Failed
+                            </span>
+</td>
+<td class="py-3 px-8 text-right font-mono text-status-red text-xs">--</td>
+</tr>
+<!-- Row 4: Normal Success -->
+<tr class="group cursor-pointer hover:bg-surface transition-colors table-row-hover">
+<td class="py-3 px-8 font-mono text-text-muted text-xs group-hover:text-text-default transition-colors">14:20:12</td>
+<td class="py-3 px-4 text-text-muted group-hover:text-text-default transition-colors">Mistral</td>
+<td class="py-3 px-4 text-text-muted group-hover:text-text-default transition-colors">mistral-large-latest</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex items-center px-2 py-0.5 rounded-sm bg-surface border border-border-muted text-status-green text-xs font-mono">
+                                412ms
+                            </span>
+</td>
+<td class="py-3 px-8 text-right font-mono text-text-muted text-xs group-hover:text-text-default transition-colors">342</td>
+</tr>
+<!-- Row 5: Normal Success -->
+<tr class="group cursor-pointer hover:bg-surface transition-colors table-row-hover">
+<td class="py-3 px-8 font-mono text-text-muted text-xs group-hover:text-text-default transition-colors">14:15:05</td>
+<td class="py-3 px-4 text-text-muted group-hover:text-text-default transition-colors">Groq</td>
+<td class="py-3 px-4 text-text-muted group-hover:text-text-default transition-colors">mixtral-8x7b-32768</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex items-center px-2 py-0.5 rounded-sm bg-surface border border-border-muted text-status-green text-xs font-mono">
+                                180ms
+                            </span>
+</td>
+<td class="py-3 px-8 text-right font-mono text-text-muted text-xs group-hover:text-text-default transition-colors">89</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer Actions -->
+<div class="px-8 py-4 border-t border-border-muted bg-background-dark shrink-0 flex justify-end">
+<button class="px-4 py-2 text-sm font-medium text-status-red hover:text-white border border-border-muted hover:border-status-red hover:bg-status-red/10 rounded-sm transition-colors focus:outline-none focus:ring-1 focus:ring-status-red">
+                Clear Logs
+            </button>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Switchboard - Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#833cf6",
+                        "background-light": "#f7f5f8",
+                        "background-dark": "#0A0A0A",
+                        "surface": "#121212",
+                        "muted": "#27272A",
+                        "text-primary": "#EDEDED",
+                        "text-secondary": "#A1A1AA",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                    },
+                    borderRadius: { "DEFAULT": "4px", "sm": "2px", "lg": "6px", "xl": "8px", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'ui-monospace', monospace; }
+        
+        /* Custom Scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272A;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-text-secondary h-screen w-full overflow-hidden flex font-display antialiased">
+<!-- Sidebar (Left) - 240px -->
+<aside class="w-[240px] flex-shrink-0 bg-surface border-r border-muted h-full flex flex-col">
+<div class="p-4 border-b border-muted">
+<h1 class="text-text-primary text-sm font-semibold tracking-tight">Switchboard</h1>
+<p class="text-xs mt-1 text-text-secondary">Prompt Router</p>
+</div>
+<div class="flex-1 overflow-y-auto p-3 space-y-1">
+<div class="text-xs font-semibold text-text-secondary/60 uppercase tracking-wider mb-3 px-2 pt-2">Today</div>
+<button class="w-full flex items-center gap-3 px-2 py-2 rounded bg-muted/50 text-text-primary text-sm transition-colors group">
+<span class="material-symbols-outlined text-[18px] opacity-70 group-hover:opacity-100" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span class="truncate text-left font-medium">React Component Refactor</span>
+</button>
+<button class="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/30 text-text-secondary hover:text-text-primary text-sm transition-colors group">
+<span class="material-symbols-outlined text-[18px] opacity-70 group-hover:opacity-100">chat</span>
+<span class="truncate text-left">Python Script Opt</span>
+</button>
+<button class="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/30 text-text-secondary hover:text-text-primary text-sm transition-colors group">
+<span class="material-symbols-outlined text-[18px] opacity-70 group-hover:opacity-100">chat</span>
+<span class="truncate text-left">Database Migration</span>
+</button>
+<div class="text-xs font-semibold text-text-secondary/60 uppercase tracking-wider mb-3 px-2 pt-6">System</div>
+<button class="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/30 text-text-secondary hover:text-text-primary text-sm transition-colors group">
+<span class="material-symbols-outlined text-[18px] opacity-70 group-hover:opacity-100">settings</span>
+<span class="truncate text-left">Provider Settings</span>
+</button>
+<button class="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/30 text-text-secondary hover:text-text-primary text-sm transition-colors group">
+<span class="material-symbols-outlined text-[18px] opacity-70 group-hover:opacity-100">library_books</span>
+<span class="truncate text-left">System Prompts</span>
+</button>
+<button class="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/30 text-text-secondary hover:text-text-primary text-sm transition-colors group">
+<span class="material-symbols-outlined text-[18px] opacity-70 group-hover:opacity-100">terminal</span>
+<span class="truncate text-left">Logs</span>
+</button>
+</div>
+<div class="p-4 border-t border-muted">
+<button class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded bg-surface border border-muted hover:border-text-secondary text-text-primary text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New Chat
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-full relative min-w-0 bg-background-dark">
+<!-- Sticky Header - 48px -->
+<header class="h-[48px] flex-shrink-0 flex items-center justify-between px-6 border-b border-muted bg-background-dark/95 backdrop-blur z-10 sticky top-0">
+<div class="flex items-center gap-3">
+<div class="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+</div>
+<h2 class="text-text-primary text-sm font-semibold tracking-tight">Groq - Llama 3</h2>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center px-2 py-1 rounded bg-surface border border-muted text-xs font-mono text-text-secondary">
+                    Tokens: <span class="text-text-primary ml-1">1,024</span>
+</div>
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface border border-muted hover:border-text-secondary text-xs text-text-primary transition-colors">
+                    Provider
+                    <span class="material-symbols-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+</header>
+<!-- Chat Feed - Scrollable -->
+<div class="flex-1 overflow-y-auto overflow-x-hidden flex justify-center pb-[140px]">
+<div class="w-full max-w-[800px] px-4 py-8 space-y-8 flex flex-col">
+<!-- Empty State (Hidden in this view, shown for reference) -->
+<!-- 
+                <div class="flex-1 flex flex-col items-center justify-center h-full opacity-50">
+                    <p class="text-text-primary text-lg font-medium tracking-tight mb-2">⌘ + K to select model</p>
+                    <p class="text-sm">Or type below to start routing.</p>
+                </div> 
+                -->
+<!-- User Message -->
+<div class="flex w-full group">
+<div class="flex-1 bg-surface border border-muted/50 rounded p-4 text-text-primary text-[14px] leading-relaxed">
+                        Can you refactor this React component to use hooks instead of class lifecycle methods? 
+                        It's a simple counter but it needs to persist to localStorage.
+                    </div>
+</div>
+<!-- AI Message -->
+<div class="flex w-full group relative">
+<div class="w-[48px] flex-shrink-0 flex justify-center pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-text-secondary hover:text-text-primary p-1 rounded hover:bg-surface">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+</div>
+<div class="flex-1 text-text-primary text-[14px] leading-relaxed prose prose-invert max-w-none">
+<p class="mb-4">Certainly. Here is the refactored React component using functional components and the `useEffect` hook for localStorage persistence.</p>
+<div class="relative bg-surface rounded border border-muted my-4 overflow-hidden group/code">
+<div class="flex items-center justify-between px-4 py-2 bg-muted/30 border-b border-muted text-xs font-mono text-text-secondary">
+<span>Counter.jsx</span>
+<button class="opacity-0 group-hover/code:opacity-100 hover:text-text-primary transition-opacity flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Copy
+                                </button>
+</div>
+<pre class="p-4 overflow-x-auto font-mono text-[13px] leading-normal text-text-primary"><code class="language-jsx">import React, { useState, useEffect } from 'react';
+
+const PersistentCounter = () =&gt; {
+  // Initialize state from localStorage or default to 0
+  const [count, setCount] = useState(() =&gt; {
+    const savedCount = localStorage.getItem('counter_value');
+    return savedCount !== null ? parseInt(savedCount, 10) : 0;
+  });
+
+  // Update localStorage whenever count changes
+  useEffect(() =&gt; {
+    localStorage.setItem('counter_value', count.toString());
+  }, [count]);
+
+  return (
+    &lt;div className="counter-container"&gt;
+      &lt;h2&gt;Count: {count}&lt;/h2&gt;
+      &lt;div className="flex gap-2"&gt;
+        &lt;button onClick={() =&gt; setCount(c =&gt; c + 1)}&gt;Increment&lt;/button&gt;
+        &lt;button onClick={() =&gt; setCount(c =&gt; c - 1)}&gt;Decrement&lt;/button&gt;
+        &lt;button onClick={() =&gt; setCount(0)}&gt;Reset&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+};
+
+export default PersistentCounter;</code></pre>
+</div>
+<p class="mt-4">Key changes made:</p>
+<ul class="list-disc pl-5 space-y-1 mt-2 mb-4 text-text-secondary">
+<li>Converted the class component to a functional component.</li>
+<li>Used lazy initialization in `useState` to read from `localStorage` only on the first render.</li>
+<li>Used `useEffect` to sync the state back to `localStorage` whenever `count` changes.</li>
+</ul>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex w-full group">
+<div class="flex-1 bg-surface border border-muted/50 rounded p-4 text-text-primary text-[14px] leading-relaxed">
+                        That looks good. How would I add a custom hook to extract the local storage logic?
+                    </div>
+</div>
+<!-- Loading State (AI) -->
+<div class="flex w-full">
+<div class="w-[48px] flex-shrink-0"></div>
+<div class="flex-1 text-[13px] font-mono text-text-secondary animate-pulse flex items-center gap-2 py-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+                        [Routing request to Groq - Llama 3...]
+                    </div>
+</div>
+</div>
+</div>
+<!-- Fixed Input Area -->
+<div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-background-dark via-background-dark to-transparent pt-10 pb-6 px-6 flex justify-center">
+<div class="w-full max-w-[800px] relative">
+<div class="bg-background-dark border border-muted rounded shadow-sm focus-within:border-text-secondary transition-colors duration-200">
+<textarea class="w-full bg-transparent border-0 text-text-primary placeholder-text-secondary/50 text-[14px] p-4 min-h-[56px] max-h-[200px] resize-none focus:ring-0" placeholder="Message Groq..." rows="1"></textarea>
+<div class="flex items-center justify-between px-3 pb-3">
+<div class="flex items-center gap-1">
+<button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-surface rounded transition-colors" title="Attach file">
+<span class="material-symbols-outlined text-[18px]">attach_file</span>
+</button>
+<button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-surface rounded transition-colors" title="System prompts">
+<span class="material-symbols-outlined text-[18px]">data_object</span>
+</button>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[11px] font-mono text-text-secondary/50 hidden sm:inline-block">↵ to send</span>
+<button class="p-1.5 bg-text-primary text-background-dark rounded hover:bg-white transition-colors" title="Send message">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">arrow_upward</span>
+</button>
+</div>
+</div>
+</div>
+<div class="text-center mt-2">
+<span class="text-[10px] text-text-secondary/50 font-mono">Switchboard v0.1.0 • Local First Routing</span>
+</div>
+</div>
+</div>
+</main>
+</body></html>

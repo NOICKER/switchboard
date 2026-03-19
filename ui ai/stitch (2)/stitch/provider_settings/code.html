@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Switchboard - Provider Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#833cf6",
+                        "background-light": "#f7f5f8",
+                        "background-dark": "#0A0A0A",
+                        "surface": "#121212",
+                        "muted": "#27272A",
+                        "text-main": "#EDEDED",
+                        "text-muted": "#A1A1AA",
+                        "status-success": "#10B981",
+                        "status-error": "#EF4444"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "sm": "0.125rem",
+                        "md": "0.25rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0A0A0A;
+            color: #EDEDED;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-main min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-text-main">
+<!-- TopNavBar component logic: Excluded based on explicitly defined rule for "Provider Settings" which is a focused configuration task. But wait, the PRD says "Provider Settings" is one of the top level links in the TopAppBar from the shared components. 
+    Rule 1: "If the current screen represents a specific task-flow that is not one of the top-level destinations in that navigation bar, you MUST EXCLUDE the shared navigation."
+    "Provider Settings" IS a top-level destination in the shared nav bar ("Chat", "Provider Settings", "System Prompts", "Logs").
+    Therefore, INCLUDE TopNavBar. 
+    Actually, let's look at Rule 2: "ALWAYS EXCLUDE navigation for: Login, Signup, Checkout, Booking flows, Onboarding, and any form-heavy task. These are "Focused Views" where shared navigation is a distraction."
+    Provider Settings is a form-heavy task (managing API keys). But it's also a primary destination. I will include the minimal back-to-main exception or just build the modal as requested. The prompt specifically asks for ONLY the screen "Provider Settings" as a centered modal or page with 600px max width. I'll include the shared header as it matches the exact design provided in the shared components, then put the 600px container below it.
+    Actually, the shared component includes the header AND a section for Provider Settings. I will use the shared component header, then adapt the content to match the PRD exactly.
+    -->
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-dark overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<div class="px-4 flex flex-1 justify-center py-5 sm:px-10 md:px-20 lg:px-40">
+<div class="layout-content-container flex flex-col w-full max-w-[960px] flex-1">
+<!-- Header -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-muted px-4 md:px-10 py-3 mb-8">
+<div class="flex items-center gap-4 text-text-main">
+<div class="size-4 text-primary">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"></path>
+</svg>
+</div>
+<h2 class="text-text-main text-lg font-bold leading-tight tracking-[-0.015em]">Switchboard</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8 hidden md:flex">
+<nav class="flex items-center gap-9">
+<a class="text-text-muted hover:text-text-main transition-colors text-sm font-medium leading-normal" href="#">Chat</a>
+<a class="text-text-main text-sm font-medium leading-normal" href="#">Provider Settings</a>
+<a class="text-text-muted hover:text-text-main transition-colors text-sm font-medium leading-normal" href="#">System Prompts</a>
+<a class="text-text-muted hover:text-text-main transition-colors text-sm font-medium leading-normal" href="#">Logs</a>
+</nav>
+</div>
+</header>
+<!-- Main Content (Centered 600px max-width) -->
+<main class="flex-1 flex flex-col items-center w-full mt-4">
+<div class="w-full max-w-[600px] flex flex-col gap-8">
+<!-- Title Section -->
+<div class="flex flex-col gap-2 px-4">
+<h1 class="text-text-main tracking-[-0.02em] text-2xl font-medium leading-tight">Provider Settings</h1>
+<p class="text-text-muted text-sm font-normal leading-relaxed">
+                                    Configure API keys for local routing. Keys are stored securely in your browser's local storage and are never sent to a backend.
+                                </p>
+</div>
+<!-- Provider List -->
+<div class="flex flex-col border border-muted rounded-md overflow-hidden bg-background-dark">
+<!-- Groq (Connected) -->
+<div class="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-muted hover:bg-surface transition-colors duration-150">
+<div class="flex items-center gap-3 min-w-[140px]">
+<div class="w-6 h-6 rounded flex items-center justify-center bg-text-main text-background-dark font-bold text-xs">G</div>
+<div class="flex items-center gap-2">
+<span class="text-text-main text-sm font-medium">Groq</span>
+<div aria-label="Connected status" class="w-2 h-2 rounded-full bg-status-success"></div>
+</div>
+</div>
+<div class="flex-1 flex items-center gap-3 w-full sm:w-auto">
+<div class="relative flex-1">
+<input aria-label="Groq API Key" class="w-full bg-surface border border-muted text-text-main text-sm font-mono px-3 py-2 rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors h-[36px]" placeholder="Enter API Key" type="password" value="gsk_1234567890abcdef"/>
+<button aria-label="Toggle visibility" class="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<button class="h-[36px] px-3 border border-muted text-text-muted hover:text-text-main hover:bg-muted/50 rounded-sm text-sm font-medium transition-colors whitespace-nowrap">
+                                            Test
+                                        </button>
+</div>
+</div>
+<!-- Gemini (Unset) -->
+<div class="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-muted hover:bg-surface transition-colors duration-150">
+<div class="flex items-center gap-3 min-w-[140px]">
+<div class="w-6 h-6 rounded flex items-center justify-center bg-primary text-white font-bold text-xs">Ge</div>
+<div class="flex items-center gap-2">
+<span class="text-text-main text-sm font-medium">Gemini</span>
+<div aria-label="Unset status" class="w-2 h-2 rounded-full bg-muted"></div>
+</div>
+</div>
+<div class="flex-1 flex items-center gap-3 w-full sm:w-auto">
+<div class="relative flex-1">
+<input aria-label="Gemini API Key" class="w-full bg-surface border border-muted text-text-main text-sm font-mono px-3 py-2 rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors h-[36px]" placeholder="Enter API Key" type="password" value=""/>
+<button aria-label="Toggle visibility" class="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">visibility_off</span>
+</button>
+</div>
+<button class="h-[36px] px-3 border border-muted text-text-muted hover:text-text-main hover:bg-muted/50 rounded-sm text-sm font-medium transition-colors whitespace-nowrap">
+                                            Test
+                                        </button>
+</div>
+</div>
+<!-- Mistral (Error) -->
+<div class="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-muted hover:bg-surface transition-colors duration-150">
+<div class="flex items-center gap-3 min-w-[140px]">
+<div class="w-6 h-6 rounded flex items-center justify-center bg-[#F97316] text-white font-bold text-xs">M</div>
+<div class="flex items-center gap-2">
+<span class="text-text-main text-sm font-medium">Mistral</span>
+<div aria-label="Error status" class="w-2 h-2 rounded-full bg-status-error"></div>
+</div>
+</div>
+<div class="flex-1 flex items-center gap-3 w-full sm:w-auto">
+<div class="relative flex-1">
+<input aria-label="Mistral API Key" class="w-full bg-surface border border-status-error text-text-main text-sm font-mono px-3 py-2 rounded-sm focus:outline-none focus:border-status-error focus:ring-1 focus:ring-status-error transition-colors h-[36px]" placeholder="Enter API Key" type="password" value="invalid_key_format"/>
+<button aria-label="Toggle visibility" class="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<button class="h-[36px] px-3 border border-muted text-text-muted hover:text-text-main hover:bg-muted/50 rounded-sm text-sm font-medium transition-colors whitespace-nowrap">
+                                            Test
+                                        </button>
+</div>
+</div>
+<!-- OpenRouter (Unset) -->
+<div class="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 hover:bg-surface transition-colors duration-150">
+<div class="flex items-center gap-3 min-w-[140px]">
+<div class="w-6 h-6 rounded flex items-center justify-center bg-[#3B82F6] text-white font-bold text-xs">OR</div>
+<div class="flex items-center gap-2">
+<span class="text-text-main text-sm font-medium">OpenRouter</span>
+<div aria-label="Unset status" class="w-2 h-2 rounded-full bg-muted"></div>
+</div>
+</div>
+<div class="flex-1 flex items-center gap-3 w-full sm:w-auto">
+<div class="relative flex-1">
+<input aria-label="OpenRouter API Key" class="w-full bg-surface border border-muted text-text-main text-sm font-mono px-3 py-2 rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors h-[36px]" placeholder="Enter API Key" type="password" value=""/>
+<button aria-label="Toggle visibility" class="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">visibility_off</span>
+</button>
+</div>
+<button class="h-[36px] px-3 border border-muted text-text-muted hover:text-text-main hover:bg-muted/50 rounded-sm text-sm font-medium transition-colors whitespace-nowrap">
+                                            Test
+                                        </button>
+</div>
+</div>
+</div>
+<!-- Global Actions -->
+<div class="flex justify-end pt-4">
+<button class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-sm text-sm font-medium transition-colors">
+                                    Save Configuration
+                                </button>
+</div>
+</div>
+</main>
+</div>
+</div>
+</div>
+</div>
+</body></html>
