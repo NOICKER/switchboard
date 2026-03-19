@@ -202,7 +202,7 @@ export function addLog(entry) {
     tokens: entry.tokens,
     status: entry.status,
     error: entry.error || entry.errorMessage || null,
-    payload: entry.payload || {},
+    payload: entry.payload || entry.messages || {},
     responseHeaders: entry.responseHeaders || {}
   })
   if (state.logs.length > 500) {
