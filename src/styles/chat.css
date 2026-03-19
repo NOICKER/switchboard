@@ -598,3 +598,11 @@
     width: 100%;
   }
 }
+
+.chat-message--assistant {
+  align-self: flex-start;
+  width: 100%;
+}
+
+.provider-badge--chat {
+}

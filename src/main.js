@@ -95,8 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
   attachKeyboardShortcuts()
 
   // Re-render on state changes from other tabs
+  let storageDebounce
   window.addEventListener('storage', () => {
-    loadState()
-    renderApp()
+    clearTimeout(storageDebounce)
+    storageDebounce = setTimeout(() => {
+      loadState()
+      renderApp()
+    }, 150)
   })
 })

@@ -204,6 +204,8 @@ async function handleSendMessage() {
   updateSendButton()
   persist()
 
+  let shouldRefreshApp = false
+
   try {
     let fullText = ''
 
@@ -246,24 +248,57 @@ async function handleSendMessage() {
     })
 
     const thinkingEl = document.getElementById('ai-thinking')
-    if (thinkingEl) {
-      thinkingEl.remove()
+    if (thinkingEl && fullText) {
+      const bubble = thinkingEl.querySelector('.message-card')
+      if (bubble) {
+        bubble.innerHTML = `
+          <div class="message-meta">
+            <span class="message-provider">
+              ${escapeHtml(result.providerId || 'Assistant')}
+            </span>
+            <span class="message-stats">
+              ${formatNumber(result.tokens || 0)} tokens /
+              ${result.latency || 0}ms
+            </span>
+          </div>
+          <div class="message-content">
+            ${renderMarkdown(fullText)}
+          </div>
+          <div class="message-actions">
+            <button
+              class="btn-icon btn-icon--subtle copy-response-btn"
+              title="Copy response"
+              type="button"
+              data-copy="${escapeAttribute(fullText)}"
+            >
+              ${copyIcon()}
+            </button>
+          </div>
+        `
+        thinkingEl.removeAttribute('id')
+      }
+    } else {
+      if (thinkingEl) thinkingEl.remove()
+      if (messagesContainer) {
+        messagesContainer.insertAdjacentHTML(
+          'beforeend',
+          renderAssistantMessage(fullText, {
+            providerId: result.providerId,
+            latency: result.latency,
+            tokens: result.tokens
+          })
+        )
+      }
     }
 
     if (messagesContainer) {
-      messagesContainer.insertAdjacentHTML(
-        'beforeend',
-        renderAssistantMessage(fullText, {
-          providerId: result.providerId,
-          latency: result.latency,
-          tokens: result.tokens
-        })
-      )
-      messagesContainer.scrollTop = messagesContainer.scrollHeight
+      messagesContainer.scrollTop =
+        messagesContainer.scrollHeight
       attachCopyHandlers(messagesContainer)
     }
 
     persist()
+    shouldRefreshApp = true
   } catch (error) {
     if (messagesContainer) {
       const thinkingEl = document.getElementById('ai-thinking')
@@ -294,6 +329,9 @@ async function handleSendMessage() {
     updateSendButton()
     updateTokenFooter()
     persist()
+    if (shouldRefreshApp && state.currentView === 'chat') {
+      window.app?.renderApp?.()
+    }
   }
 }
 
@@ -517,7 +555,7 @@ function formatNumber(value) {
 function parseChatHtml(html) {
   const container = document.createElement('div')
   container.innerHTML = html
-  return container.childNodes
+  return [...container.childNodes]
 }
 
 function parseAiMessageHtml(html) {

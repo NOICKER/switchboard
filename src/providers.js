@@ -114,11 +114,11 @@ export async function callProvider(providerId, messages, apiKey, onChunk) {
     return callHuggingFace(p, messages, apiKey, activePrompt)
   } else {
     // OpenAI compatible
-    return callOpenAI(providerId, p, messages, apiKey, activePrompt, onChunk, streamOpenAI)
+    return callOpenAI(providerId, p, messages, apiKey, activePrompt, onChunk)
   }
 }
 
-async function callOpenAI(providerId, p, messages, apiKey, activePrompt, onChunk, streamOpenAI) {
+async function callOpenAI(providerId, p, messages, apiKey, activePrompt, onChunk) {
   const url = p.chatEndpoint
   const msgs = activePrompt
     ? [{ role: 'system', content: activePrompt.content }, ...messages]
@@ -167,12 +167,28 @@ async function callGemini(p, messages, apiKey, activePrompt) {
     systemInstruction: activePrompt
       ? { parts: [{ text: activePrompt.content }] }
       : undefined,
-    contents: messages
-      .filter(m => m.role !== 'system')
-      .map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      })),
+    contents: (() => {
+      const filtered = messages
+        .filter(m => m.role !== 'system')
+        .map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        }))
+
+      const merged = []
+      for (const msg of filtered) {
+        const last = merged[merged.length - 1]
+        if (last && last.role === msg.role) {
+          last.parts[0].text += '\n' + msg.parts[0].text
+        } else {
+          merged.push({
+            ...msg,
+            parts: [{ ...msg.parts[0] }]
+          })
+        }
+      }
+      return merged
+    })(),
     generationConfig: { temperature: 0.7 }
   }
 

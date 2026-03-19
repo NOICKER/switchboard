@@ -201,7 +201,7 @@ export function addLog(entry) {
     latency: entry.latency,
     tokens: entry.tokens,
     status: entry.status,
-    error: entry.error || null,
+    error: entry.error || entry.errorMessage || null,
     payload: entry.payload || {},
     responseHeaders: entry.responseHeaders || {}
   })

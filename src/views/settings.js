@@ -412,6 +412,7 @@ async function testProvider(button) {
 
   const row = button.closest('.provider-row')
   row?.classList.remove('provider-row--error')
+  let timeout
 
   try {
     const provider = getAllProviders()[providerId]
@@ -426,9 +427,18 @@ async function testProvider(button) {
       url = url.replace('{apiKey}', apiKey)
     }
 
+    const controller = new AbortController()
+    timeout = setTimeout(
+      () => controller.abort(), 10000
+    )
+
     const response = await fetch(url, {
-      headers: providerId === 'gemini' ? {} : { Authorization: `Bearer ${apiKey}` }
+      headers: providerId === 'gemini'
+        ? {}
+        : { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     if (response.ok) {
       button.textContent = 'Connected'
@@ -443,6 +453,7 @@ async function testProvider(button) {
     button.textContent = 'Failed'
     button.classList.add('is-error')
   } finally {
+    clearTimeout(timeout)
     setTimeout(() => {
       button.textContent = 'Test'
       button.disabled = false

@@ -426,3 +426,7 @@ kbd {
     text-align: left;
   }
 }
+
+.modal-card--help {
+  max-width: 620px;
+}

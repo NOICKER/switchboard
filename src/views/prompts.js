@@ -3,7 +3,11 @@ import { state, persist } from '../state.js'
 export function renderPromptsView() {
   const prompts = state.systemPrompts || []
   const activePrompt = state.activePromptId
-  const selectedPrompt = prompts.find(prompt => prompt.id === activePrompt)
+  const editingId = state.currentEditingPromptId
+    || state.activePromptId
+  const selectedPrompt = prompts.find(
+    prompt => prompt.id === editingId
+  )
 
   return `
     <div class="view" id="view-prompts">
@@ -29,7 +33,12 @@ export function renderPromptsView() {
         </aside>
 
         <section class="prompts-editor">
-          ${selectedPrompt ? renderPromptEditor(selectedPrompt, activePrompt) : renderNoPromptSelected()}
+          ${selectedPrompt
+            ? renderPromptEditor(
+              selectedPrompt,
+              state.activePromptId
+            )
+            : renderNoPromptSelected()}
         </section>
       </div>
     </div>
@@ -48,8 +57,7 @@ export function attachPromptsHandlers() {
       if (event.target.closest('button')) return
 
       const id = item.dataset.promptId
-      state.activePromptId = id
-      persist()
+      state.currentEditingPromptId = id
       reRenderPrompts()
     })
   })
@@ -63,6 +71,9 @@ export function attachPromptsHandlers() {
         state.systemPrompts = state.systemPrompts.filter(prompt => prompt.id !== id)
         if (state.activePromptId === id) {
           state.activePromptId = state.systemPrompts[0]?.id || null
+        }
+        if (state.currentEditingPromptId === id) {
+          state.currentEditingPromptId = state.activePromptId || state.systemPrompts[0]?.id || null
         }
         persist()
         reRenderPrompts()
@@ -84,8 +95,6 @@ export function attachPromptsHandlers() {
       const prompt = state.systemPrompts.find(item => item.id === promptId)
       if (prompt) {
         prompt.name = event.target.value
-        state.currentEditingPromptId = prompt.id
-        state.activePromptId = prompt.id
       }
     })
   }
@@ -96,8 +105,6 @@ export function attachPromptsHandlers() {
       const prompt = state.systemPrompts.find(item => item.id === promptId)
       if (prompt) {
         prompt.content = event.target.value
-        state.currentEditingPromptId = prompt.id
-        state.activePromptId = prompt.id
         updateTokenCount()
       }
     })
@@ -117,7 +124,6 @@ export function attachPromptsHandlers() {
       state.currentEditingPromptId = editingId
       persist()
       reRenderPrompts()
-      flashButtonLabel(setActiveBtn, 'Active')
     })
   }
 
@@ -166,7 +172,9 @@ function renderPromptEditor(prompt, activePromptId) {
             value="${escapeAttribute(prompt.name)}"
             placeholder="Prompt name"
           />
-          <span class="editor-badge">Active context</span>
+          ${isActive
+            ? '<span class="editor-badge">Active context</span>'
+            : ''}
         </div>
 
         <div class="editor-actions">
@@ -211,7 +219,6 @@ function handleNewPrompt() {
   }
 
   state.systemPrompts.push(prompt)
-  state.activePromptId = id
   state.currentEditingPromptId = id
   persist()
   reRenderPrompts()

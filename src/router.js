@@ -12,7 +12,12 @@ export async function routeMessage(messages, onChunk) {
 }
 
 async function routeSequential(messages, onChunk) {
-  const order = getProviderOrder()
+  const order = state.providerOverride
+    ? [state.providerOverride,
+      ...getProviderOrder().filter(
+        id => id !== state.providerOverride
+      )]
+    : getProviderOrder()
   const errors = []
 
   for (const providerId of order) {
@@ -81,7 +86,7 @@ async function routePool(messages, onChunk) {
       (async () => {
         const startMs = Date.now()
         try {
-          const result = await callProvider(providerId, messages, apiKey, onChunk)
+          const result = await callProvider(providerId, messages, apiKey, null)
           const latency = Date.now() - startMs
           const providerLabel = getAllProviders()[providerId]?.name || providerId
 
@@ -124,7 +129,19 @@ async function routePool(messages, onChunk) {
     throw new Error('No healthy providers available')
   }
 
-  const winner = await Promise.any(races)
+  let winner
+  try {
+    winner = await Promise.any(races)
+  } catch (e) {
+    if (e instanceof AggregateError) {
+      const msgs = e.errors.map(err => err.message)
+        .join(', ')
+      throw new Error(
+        'All providers failed in pool mode: ' + msgs
+      )
+    }
+    throw e
+  }
   incrementUsage(winner.providerId)
   return winner
 }
