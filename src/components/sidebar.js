@@ -75,7 +75,11 @@ export function attachSidebarHandlers() {
     })
   }
 
-  const chatItems = document.querySelectorAll('.chat-item')
+  attachChatHistoryHandlers(document)
+}
+
+export function attachChatHistoryHandlers(root = document) {
+  const chatItems = root.querySelectorAll('.chat-item')
   chatItems.forEach(item => {
     item.addEventListener('click', () => {
       const id = item.dataset.chatId
@@ -85,7 +89,7 @@ export function attachSidebarHandlers() {
     })
   })
 
-  const deleteButtons = document.querySelectorAll('.delete-chat-btn')
+  const deleteButtons = root.querySelectorAll('.delete-chat-btn')
   deleteButtons.forEach(btn => {
     btn.addEventListener('click', evt => {
       evt.stopPropagation()
@@ -113,7 +117,7 @@ function renderNavItem(item) {
   `
 }
 
-function renderChatHistory() {
+export function renderChatHistory() {
   const currentId = state.currentChatId
   const chats = state.chats || []
 

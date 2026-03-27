@@ -13,7 +13,7 @@ import { renderSidebar, attachSidebarHandlers } from './components/sidebar.js'
 import { renderTopnav, attachTopnavHandlers } from './components/topnav.js'
 import { attachKeyboardShortcuts } from './components/shortcuts.js'
 
-import { renderChatView, attachChatHandlers } from './views/chat.js'
+import { renderChatView, attachChatHandlers, clearResponseCopyMap } from './views/chat.js'
 import { renderSettingsView, attachSettingsHandlers } from './views/settings.js'
 import { renderPromptsView, attachPromptsHandlers } from './views/prompts.js'
 import { renderLogsView, attachLogsHandlers } from './views/logs.js'
@@ -31,6 +31,8 @@ export function renderApp() {
     console.error('Root #app element not found')
     return
   }
+
+  clearResponseCopyMap()
 
   // Render main layout
   const mainHtml = `

@@ -2,11 +2,16 @@ import { state, getCurrentChat, persist, getActiveSystemPrompt, newChat } from '
 import { getProviderOrder, getAllProviders } from '../providers.js'
 import { routeMessage } from '../router.js'
 import { renderMarkdown, attachCopyHandlers } from '../markdown.js'
+import { renderChatHistory, attachChatHistoryHandlers } from '../components/sidebar.js'
 
 let handleDocumentClick = null
 let handleResponseCopyClick = null
 let responseCopyContainer = null
 const responseCopyMap = new Map()
+
+export function clearResponseCopyMap() {
+  responseCopyMap.clear()
+}
 
 export function renderChatView() {
   const chat = getCurrentChat()
@@ -217,6 +222,7 @@ async function handleSendMessage() {
 
   try {
     let fullText = ''
+    const streamCopyId = 'r-' + Math.random().toString(36).slice(2, 8)
 
     const activeProvider = getActiveProvider()
 
@@ -234,16 +240,41 @@ async function handleSendMessage() {
             renderAssistantMessage(
               fullText,
               {
-                id: 'ai-thinking',
+                id: 'ai-streaming',
                 providerId: activeProvider.id,
                 providerLabel: activeProvider.name,
                 tokens: Math.ceil(fullText.length / 4),
-                latency: 'Streaming'
+                latency: 'Streaming',
+                copyId: streamCopyId
               }
             )
           )
         )
 
+        container.scrollTop = container.scrollHeight
+        return
+      }
+
+      const streamingEl = document.getElementById('ai-streaming')
+      if (streamingEl && container.contains(streamingEl)) {
+        responseCopyMap.set(streamCopyId, fullText)
+
+        const contentEl = streamingEl.querySelector('.message-content')
+        if (contentEl) {
+          contentEl.innerHTML = renderMarkdown(fullText)
+        }
+
+        const statsEl = streamingEl.querySelector('.message-stats')
+        if (statsEl) {
+          statsEl.textContent = `${formatNumber(Math.ceil(fullText.length / 4))} tokens / Streaming`
+        }
+
+        const copyBtn = streamingEl.querySelector('.copy-response-btn')
+        if (copyBtn) {
+          copyBtn.dataset.copyId = streamCopyId
+        }
+
+        attachCopyHandlers(streamingEl)
         container.scrollTop = container.scrollHeight
       }
     })
@@ -262,15 +293,12 @@ async function handleSendMessage() {
 
     const finalContainer = document.getElementById('chat-messages')
 
-    const thinkingEl = document.getElementById('ai-thinking')
-    if (thinkingEl && fullText) {
-      const bubble = thinkingEl.querySelector('.message-card')
+    const streamingEl = document.getElementById('ai-streaming')
+    if (streamingEl && fullText) {
+      responseCopyMap.set(streamCopyId, fullText)
+
+      const bubble = streamingEl.querySelector('.message-card')
       if (bubble) {
-        const copyId = (() => {
-          const id = 'r-' + Math.random().toString(36).slice(2, 8)
-          responseCopyMap.set(id, fullText)
-          return id
-        })()
         bubble.innerHTML = `
           <div class="message-meta">
             <span class="message-provider">
@@ -289,15 +317,17 @@ async function handleSendMessage() {
               class="btn-icon btn-icon--subtle copy-response-btn"
               title="Copy response"
               type="button"
-              data-copy-id="${copyId}"
+              data-copy-id="${streamCopyId}"
             >
               ${copyIcon()}
             </button>
           </div>
         `
-        thinkingEl.removeAttribute('id')
+        streamingEl.removeAttribute('id')
+        attachCopyHandlers(streamingEl)
       }
     } else {
+      const thinkingEl = document.getElementById('ai-thinking')
       if (thinkingEl) thinkingEl.remove()
       if (finalContainer) {
         finalContainer.insertAdjacentHTML(
@@ -305,7 +335,8 @@ async function handleSendMessage() {
           renderAssistantMessage(fullText, {
             providerId: result.providerId,
             latency: result.latency,
-            tokens: result.tokens
+            tokens: result.tokens,
+            copyId: streamCopyId
           })
         )
       }
@@ -354,40 +385,8 @@ async function handleSendMessage() {
     // not the entire app — much lighter
     const historyEl = document.getElementById('chat-history')
     if (historyEl) {
-      const chats = state.chats || []
-      const currentId = state.currentChatId
-
-      historyEl.innerHTML = chats.map(chat => {
-        const firstMsg = chat.messages?.find(m => m.role === 'user')?.content?.trim() || 'New chat'
-        const preview = firstMsg.length > 54 ? firstMsg.slice(0, 51) + '...' : firstMsg
-        const isActive = chat.id === currentId
-        const date = new Date(chat.createdAt)
-        const now = new Date()
-        const timeStr = date.toDateString() === now.toDateString()
-          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : 'Yesterday'
-
-        return `
-          <li class="chat-item ${isActive ? 'active' : ''}"
-            data-chat-id="${chat.id}">
-            <div class="chat-item-content">
-              <div class="chat-preview">
-                ${escapeHtml(preview)}
-              </div>
-              <div class="chat-time">${timeStr}</div>
-            </div>
-          </li>
-        `
-      }).join('')
-
-      // Re-attach click handlers on the new items
-      historyEl.querySelectorAll('.chat-item').forEach(item => {
-        item.addEventListener('click', () => {
-          state.currentChatId = item.dataset.chatId
-          state.currentView = 'chat'
-          window.app?.renderApp?.()
-        })
-      })
+      historyEl.innerHTML = renderChatHistory()
+      attachChatHistoryHandlers(historyEl)
     }
   }
 }
@@ -462,11 +461,8 @@ function renderAssistantMessage(content, metadata = {}) {
     stats.push(typeof metadata.latency === 'number' ? `${metadata.latency}ms` : metadata.latency)
   }
 
-  const copyId = (() => {
-    const id = 'r-' + Math.random().toString(36).slice(2, 8)
-    responseCopyMap.set(id, content)
-    return id
-  })()
+  const copyId = metadata.copyId || ('r-' + Math.random().toString(36).slice(2, 8))
+  responseCopyMap.set(copyId, content)
 
   return `
     <article class="chat-message chat-message--assistant" ${metadata.id ? `id="${metadata.id}"` : ''}>
