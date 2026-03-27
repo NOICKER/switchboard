@@ -11,6 +11,8 @@ export const state = {
   currentEditingPromptId: null,
   chats: [],
   apiKeys: {},
+  keyRotation: {},
+  keyCooldowns: {},
   keyStatus: {},
   systemPrompts: [],
   activePromptId: null,
@@ -40,6 +42,8 @@ export function load(key, def) {
 export function persist() {
   save('chats', state.chats)
   save('apiKeys', state.apiKeys)
+  save('keyRotation', state.keyRotation)
+  save('keyCooldowns', state.keyCooldowns)
   save('keyStatus', state.keyStatus)
   save('systemPrompts', state.systemPrompts)
   save('activePromptId', state.activePromptId)
@@ -55,7 +59,9 @@ export function persist() {
 
 export function loadState() {
   state.chats = load('chats', [])
-  state.apiKeys = load('apiKeys', {})
+  state.apiKeys = normalizeStoredApiKeys(load('apiKeys', {}))
+  state.keyRotation = load('keyRotation', {})
+  state.keyCooldowns = load('keyCooldowns', {})
   state.keyStatus = load('keyStatus', {})
   state.systemPrompts = load('systemPrompts', defaultSystemPrompts())
   state.activePromptId = load('activePromptId', 
@@ -72,6 +78,29 @@ export function loadState() {
   if (state.chats.length > 0) {
     state.currentChatId = state.chats[0].id
   }
+}
+
+function normalizeStoredApiKeys(apiKeys) {
+  const normalized = {}
+
+  Object.entries(apiKeys || {}).forEach(([providerId, value]) => {
+    if (Array.isArray(value)) {
+      normalized[providerId] = value
+        .map(key => String(key ?? '').trim())
+        .filter(Boolean)
+      return
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      normalized[providerId] = trimmed ? [trimmed] : []
+      return
+    }
+
+    normalized[providerId] = []
+  })
+
+  return normalized
 }
 
 // ID GENERATION

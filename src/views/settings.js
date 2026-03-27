@@ -1,6 +1,7 @@
-import { state, persist } from '../state.js'
+import { state, persist, getUsage } from '../state.js'
 import { getAllProviders, getProviderOrder, PROVIDERS } from '../providers.js'
 import { clearHealthCache } from '../health.js'
+import { addProviderKey, getProviderKeys, removeProviderKey, setProviderKeys, updateProviderKey } from '../keyring.js'
 
 export function renderSettingsView() {
   const providers = getAllProviders()
@@ -220,10 +221,28 @@ export function attachSettingsHandlers() {
   apiKeyInputs.forEach(input => {
     input.addEventListener('input', event => {
       const providerId = input.dataset.providerId
-      state.apiKeys[providerId] = event.target.value
+      const keyIndex = parseInt(input.dataset.keyIndex || '0', 10)
+      updateProviderKey(providerId, keyIndex, event.target.value)
       const providerRow = input.closest('.provider-row')
       providerRow?.classList.remove('provider-row--error')
-      persist()
+    })
+  })
+
+  const addKeyButtons = document.querySelectorAll('.add-provider-key-btn')
+  addKeyButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      addProviderKey(button.dataset.providerId)
+      window.app?.renderApp?.()
+    })
+  })
+
+  const deleteKeyButtons = document.querySelectorAll('.delete-provider-key-btn')
+  deleteKeyButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const providerId = button.dataset.providerId
+      const keyIndex = parseInt(button.dataset.keyIndex || '0', 10)
+      removeProviderKey(providerId, keyIndex)
+      window.app?.renderApp?.()
     })
   })
 
@@ -293,11 +312,15 @@ function renderProviderRows(allProviders) {
     const provider = allProviders[id]
     if (!provider) return ''
 
-    const apiKey = state.apiKeys[id] || ''
+    const apiKeys = getProviderKeys(id)
+    const draftKeys = getProviderKeys(id, { includeEmpty: true })
+    const visibleKeys = draftKeys.length > 0 ? draftKeys : ['']
+    const hasConfiguredKey = apiKeys.length > 0
+    const keyUsage = getPerKeyUsage(id, visibleKeys.length)
     const isCustom = provider.isCustom
 
     return `
-      <div class="provider-row ${apiKey ? 'provider-row--configured' : ''}" data-provider-id="${id}" ${isCustom ? '' : 'draggable="true"'}>
+      <div class="provider-row ${hasConfiguredKey ? 'provider-row--configured' : ''}" data-provider-id="${id}" ${isCustom ? '' : 'draggable="true"'}>
         <div class="row-left">
           <span class="drag-handle" title="${isCustom ? 'Custom providers stay pinned to the end' : 'Drag to reorder'}">
             ${dragIcon()}
@@ -310,7 +333,7 @@ function renderProviderRows(allProviders) {
           <span class="provider-info">
             <span class="provider-name-row">
               <strong class="provider-name">${escapeHtml(provider.name)}</strong>
-              <span class="provider-status ${apiKey ? 'provider-status--configured' : 'provider-status--idle'}"></span>
+              <span class="provider-status ${hasConfiguredKey ? 'provider-status--configured' : 'provider-status--idle'}"></span>
               ${isCustom ? '<span class="inline-badge">Custom</span>' : ''}
             </span>
             <span class="provider-model">${escapeHtml(provider.model)}</span>
@@ -318,17 +341,40 @@ function renderProviderRows(allProviders) {
         </div>
 
         <div class="row-center">
-          <div class="input-with-eye">
-            <input
-              type="password"
-              id="api-key-${id}"
-              class="api-key-input"
-              data-provider-id="${id}"
-              value="${escapeAttribute(apiKey)}"
-              placeholder="Enter API key"
-            />
-            <button class="eye-toggle" type="button" data-target="api-key-${id}" aria-label="Toggle API key visibility">
-              ${eyeIcon()}
+          <div class="provider-keys-list">
+            ${visibleKeys.map((apiKey, keyIndex) => `
+              <div class="provider-key-item">
+                <label class="provider-key-label" for="api-key-${id}-${keyIndex}">Key ${keyIndex + 1}</label>
+                <div class="provider-key-controls">
+                  <div class="input-with-eye">
+                    <input
+                      type="password"
+                      id="api-key-${id}-${keyIndex}"
+                      class="api-key-input"
+                      data-provider-id="${id}"
+                      data-key-index="${keyIndex}"
+                      value="${escapeAttribute(apiKey)}"
+                      placeholder="Enter API key"
+                    />
+                    <button class="eye-toggle" type="button" data-target="api-key-${id}-${keyIndex}" aria-label="Toggle API key visibility">
+                      ${eyeIcon()}
+                    </button>
+                  </div>
+                  <button
+                    class="btn-icon btn-icon--subtle delete-provider-key-btn"
+                    type="button"
+                    data-provider-id="${id}"
+                    data-key-index="${keyIndex}"
+                    title="Remove key"
+                  >
+                    ${trashIcon()}
+                  </button>
+                </div>
+                ${renderKeyUsageRow(provider, keyIndex, keyUsage[keyIndex] || 0)}
+              </div>
+            `).join('')}
+            <button class="btn-secondary add-provider-key-btn" type="button" data-provider-id="${id}">
+              Add another key
             </button>
           </div>
         </div>
@@ -390,7 +436,7 @@ function handleAddProvider(event) {
     dailyLimit
   })
 
-  state.apiKeys[id] = apiKey
+  setProviderKeys(id, [apiKey])
   persist()
 
   document.getElementById('provider-form')?.reset()
@@ -400,7 +446,7 @@ function handleAddProvider(event) {
 
 async function testProvider(button) {
   const providerId = button.dataset.providerId
-  const apiKey = state.apiKeys[providerId]
+  const apiKey = getProviderKeys(providerId)[0]
 
   if (!apiKey) {
     alert('No API key configured for this provider.')
@@ -479,6 +525,41 @@ function reorderProviders(fromId, toId) {
     clearHealthCache()
     window.app?.renderApp?.()
   }
+}
+
+function renderKeyUsageRow(provider, keyIndex, requestCount) {
+  const dailyLimit = Math.max(provider.dailyLimit || 0, 1)
+  const usagePercent = Math.min(Math.round((requestCount / dailyLimit) * 100), 100)
+  const usageTone = usagePercent >= 90
+    ? 'danger'
+    : usagePercent >= 70
+      ? 'warning'
+      : 'normal'
+
+  return `
+    <div class="provider-key-usage">
+      <div class="provider-key-usage__copy">
+        Key ${keyIndex + 1} - ${requestCount} requests today (${usagePercent}% of ${dailyLimit} daily limit)
+      </div>
+      <div class="provider-key-usage__bar">
+        <div
+          class="provider-key-usage__fill provider-key-usage__fill--${usageTone}"
+          style="width: ${usagePercent}%"
+        ></div>
+      </div>
+    </div>
+  `
+}
+
+function getPerKeyUsage(providerId, keyCount) {
+  const totalUsage = getUsage(providerId)
+  const divisor = Math.max(keyCount, 1)
+  const baseUsage = Math.floor(totalUsage / divisor)
+  const remainder = totalUsage % divisor
+
+  return Array.from({ length: divisor }, (_, index) => (
+    baseUsage + (index < remainder ? 1 : 0)
+  ))
 }
 
 function escapeHtml(text) {

@@ -1,5 +1,6 @@
 import { state, getUsage, getActiveSystemPrompt } from './state.js'
 import { streamOpenAI } from './streaming.js'
+import { getNextAvailableKey, getProviderKeys } from './keyring.js'
 
 export const PROVIDERS = {
   groq: {
@@ -98,7 +99,18 @@ export function getApiKey(providerId) {
   const all = getAllProviders()
   const p = all[providerId]
   if (!p) return null
-  return p.isCustom ? p.apiKeyOverride : state.apiKeys[providerId]
+
+  const nextKey = getNextAvailableKey(providerId)
+  if (nextKey?.apiKey) {
+    return nextKey.apiKey
+  }
+
+  const fallbackKeys = getProviderKeys(providerId)
+  if (fallbackKeys.length > 0) {
+    return fallbackKeys[0]
+  }
+
+  return p.isCustom ? p.apiKeyOverride : null
 }
 
 export async function callProvider(providerId, messages, apiKey, onChunk) {
@@ -260,7 +272,10 @@ export async function fetchJson(url, headers, body) {
 
     if (!resp.ok) {
       const err = await resp.text().catch(() => resp.statusText)
-      throw new Error(resp.status + ': ' + err.slice(0, 120))
+      const error = new Error(resp.status + ': ' + err.slice(0, 120))
+      error.statusCode = resp.status
+      error.responseText = err
+      throw error
     }
 
     return resp.json()

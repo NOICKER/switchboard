@@ -14,7 +14,10 @@ export async function streamOpenAI(url, headers, body, onChunk) {
 
     if (!resp.ok) {
       const err = await resp.text().catch(() => resp.statusText)
-      throw new Error(resp.status + ': ' + err.slice(0, 120))
+      const error = new Error(resp.status + ': ' + err.slice(0, 120))
+      error.statusCode = resp.status
+      error.responseText = err
+      throw error
     }
 
     if (!resp.body) throw new Error('Response body not readable')

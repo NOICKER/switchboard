@@ -1,6 +1,10 @@
 import { state, addLog, incrementUsage } from './state.js'
 import { getProviderOrder, getApiKey, callProvider, getAllProviders } from './providers.js'
 import { isHealthy } from './health.js'
+import { showToast } from './components/toast.js'
+import { describeProviderKey, getConfiguredKeyCount, getNextAvailableKey, setKeyCooldown } from './keyring.js'
+
+const RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000
 
 export async function routeMessage(messages, onChunk) {
   if (!messages || messages.length === 0) {
@@ -21,8 +25,14 @@ async function routeSequential(messages, onChunk) {
   const errors = []
 
   for (const providerId of order) {
-    const apiKey = getApiKey(providerId)
-    if (!apiKey) continue
+    const configuredKeyCount = getConfiguredKeyCount(providerId)
+    if (!configuredKeyCount) continue
+
+    const previewKey = getNextAvailableKey(providerId, { advance: false })
+    if (!previewKey?.apiKey) {
+      errors.push({ providerId, error: 'All keys cooling down' })
+      continue
+    }
 
     const healthy = await isHealthy(providerId)
     if (!healthy) {
@@ -30,38 +40,75 @@ async function routeSequential(messages, onChunk) {
       continue
     }
 
-    const startMs = Date.now()
-    try {
-      const result = await callProvider(providerId, messages, apiKey, onChunk)
-      const latency = Date.now() - startMs
-      const providerLabel = getAllProviders()[providerId]?.name || providerId
+    for (let attempt = 0; attempt < configuredKeyCount; attempt += 1) {
+      const keyMeta = getNextAvailableKey(providerId)
+      if (!keyMeta?.apiKey) {
+        break
+      }
 
-      addLog({
-        timestamp: new Date().toISOString(),
-        providerId,
-        model: getAllProviders()[providerId]?.model || providerId,
-        latency,
-        tokens: result.tokens,
-        status: 'ok',
-        messages
-      })
+      const startMs = Date.now()
+      try {
+        const result = await callProvider(providerId, messages, keyMeta.apiKey, onChunk)
+        const latency = Date.now() - startMs
+        const providerLabel = getAllProviders()[providerId]?.name || providerId
 
-      incrementUsage(providerId)
+        addLog({
+          timestamp: new Date().toISOString(),
+          providerId,
+          model: getAllProviders()[providerId]?.model || providerId,
+          latency,
+          tokens: result.tokens,
+          status: 'ok',
+          messages,
+          payload: { keyIndex: keyMeta.keyIndex }
+        })
 
-      return { ...result, providerId, providerLabel, latency }
-    } catch (e) {
-      const latency = Date.now() - startMs
-      addLog({
-        timestamp: new Date().toISOString(),
-        providerId,
-        model: getAllProviders()[providerId]?.model || providerId,
-        latency,
-        tokens: 0,
-        status: 'error',
-        errorMessage: e.message.slice(0, 200),
-        messages
-      })
-      errors.push({ providerId, error: e.message })
+        incrementUsage(providerId)
+
+        return { ...result, providerId, providerLabel, latency, keyIndex: keyMeta.keyIndex }
+      } catch (e) {
+        const latency = Date.now() - startMs
+
+        if (e.statusCode === 429) {
+          setKeyCooldown(providerId, keyMeta.keyIndex, Date.now() + RATE_LIMIT_COOLDOWN_MS)
+          addLog({
+            timestamp: new Date().toISOString(),
+            providerId,
+            model: getAllProviders()[providerId]?.model || providerId,
+            latency,
+            tokens: 0,
+            status: 'rate_limited',
+            errorMessage: e.message.slice(0, 200),
+            messages,
+            payload: { keyIndex: keyMeta.keyIndex }
+          })
+
+          const target = findNextTarget(order, providerId)
+          if (target) {
+            showToast(
+              `${describeProviderKey(getAllProviders()[providerId]?.name || providerId, keyMeta.keyIndex)} rate limited - switching to ${describeProviderKey(target.providerName, target.keyIndex)}`,
+              'warning',
+              4000
+            )
+          }
+
+          continue
+        }
+
+        addLog({
+          timestamp: new Date().toISOString(),
+          providerId,
+          model: getAllProviders()[providerId]?.model || providerId,
+          latency,
+          tokens: 0,
+          status: 'error',
+          errorMessage: e.message.slice(0, 200),
+          messages,
+          payload: { keyIndex: keyMeta.keyIndex }
+        })
+        errors.push({ providerId, error: e.message })
+        break
+      }
     }
   }
 
@@ -144,4 +191,32 @@ async function routePool(messages, onChunk) {
   }
   incrementUsage(winner.providerId)
   return winner
+}
+
+function findNextTarget(order, currentProviderId) {
+  const currentIndex = order.indexOf(currentProviderId)
+  const allProviders = getAllProviders()
+
+  const sameProviderTarget = getNextAvailableKey(currentProviderId, { advance: false })
+  if (sameProviderTarget?.apiKey) {
+    return {
+      providerId: currentProviderId,
+      providerName: allProviders[currentProviderId]?.name || currentProviderId,
+      keyIndex: sameProviderTarget.keyIndex
+    }
+  }
+
+  for (let index = currentIndex + 1; index < order.length; index += 1) {
+    const providerId = order[index]
+    const nextKey = getNextAvailableKey(providerId, { advance: false })
+    if (!nextKey?.apiKey) continue
+
+    return {
+      providerId,
+      providerName: allProviders[providerId]?.name || providerId,
+      keyIndex: nextKey.keyIndex
+    }
+  }
+
+  return null
 }

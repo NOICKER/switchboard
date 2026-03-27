@@ -1,11 +1,12 @@
 import { state } from './state.js'
 import { PROVIDERS, getApiKey } from './providers.js'
+import { getNextAvailableKey } from './keyring.js'
 
 const healthCache = new Map() // { providerId: { healthy: bool, timestamp: ms } }
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export async function isHealthy(providerId) {
-  const apiKey = getApiKey(providerId)
+  const apiKey = getNextAvailableKey(providerId, { advance: false })?.apiKey || getApiKey(providerId)
   if (!apiKey) return false
 
   const cached = healthCache.get(providerId)
