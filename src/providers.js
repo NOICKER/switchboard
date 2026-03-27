@@ -105,12 +105,11 @@ export function getApiKey(providerId) {
     return nextKey.apiKey
   }
 
-  const fallbackKeys = getProviderKeys(providerId)
-  if (fallbackKeys.length > 0) {
-    return fallbackKeys[0]
+  if (p.isCustom) {
+    return p.apiKeyOverride || null
   }
 
-  return p.isCustom ? p.apiKeyOverride : null
+  return null
 }
 
 export async function callProvider(providerId, messages, apiKey, onChunk) {
