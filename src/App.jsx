@@ -584,12 +584,17 @@ const SettingsProviderCard = ({ provider, providerId }) => {
   const rawKeys = store.apiKeys[providerId];
   const keys = Array.isArray(rawKeys) ? rawKeys : (rawKeys ? [rawKeys] : ['']);
   const [visibleKeys, setVisibleKeys] = useState({});
+  const syncTimer = useRef(null);
 
   const syncAndPersist = (newKeys) => {
     state.apiKeys[providerId] = newKeys;
     persist();
     notify();
-    syncKeysToBackend().catch(() => {});
+    
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => {
+      syncKeysToBackend().catch(() => {});
+    }, 600);
   };
 
   const handleKeyChange = (index, value) => {

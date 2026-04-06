@@ -1,36 +1,28 @@
-import { state, addLog, incrementUsage } from './state.js'
-import { getProviderOrder, getApiKey, callProvider, getAllProviders } from './providers.js'
+import { state } from './state.js'
+import { getProviderOrder, callProvider, getAllProviders } from './providers.js'
 import { isHealthy } from './health.js'
 import { showToast } from './components/toast.js'
-import { describeProviderKey, getConfiguredKeyCount, getNextAvailableKey, setKeyCooldown } from './keyring.js'
-
-const RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000
+import { getConfiguredKeyCount } from './keyring.js'
 
 export async function routeMessage(messages, onChunk) {
   if (!messages || messages.length === 0) {
     throw new Error('No messages to route')
   }
 
-  const all = state.poolMode ? await routePool(messages, onChunk) : await routeSequential(messages, onChunk)
-  return all
+  return state.poolMode
+    ? routePool(messages)
+    : routeSequential(messages, onChunk)
 }
 
 async function routeSequential(messages, onChunk) {
   const order = state.providerOverride
-    ? [state.providerOverride,
-      ...getProviderOrder().filter(
-        id => id !== state.providerOverride
-      )]
+    ? [state.providerOverride, ...getProviderOrder().filter(id => id !== state.providerOverride)]
     : getProviderOrder()
   const errors = []
+  let rateLimitedCount = 0
 
   for (const providerId of order) {
-    const configuredKeyCount = getConfiguredKeyCount(providerId)
-    if (!configuredKeyCount) continue
-
-    const previewKey = getNextAvailableKey(providerId, { advance: false })
-    if (!previewKey?.apiKey) {
-      errors.push({ providerId, error: 'All keys cooling down' })
+    if (!getConfiguredKeyCount(providerId)) {
       continue
     }
 
@@ -40,112 +32,67 @@ async function routeSequential(messages, onChunk) {
       continue
     }
 
-    for (let attempt = 0; attempt < configuredKeyCount; attempt += 1) {
-      const keyMeta = getNextAvailableKey(providerId)
-      if (!keyMeta?.apiKey) {
-        break
-      }
+    const startMs = Date.now()
 
-      const startMs = Date.now()
-      try {
-        const result = await callProvider(providerId, messages, keyMeta.apiKey, onChunk)
-        const latency = Date.now() - startMs
-        const providerLabel = getAllProviders()[providerId]?.name || providerId
+    try {
+      const result = await callProvider(providerId, messages, null, onChunk)
+      const latency = Date.now() - startMs
+      const providerLabel = getAllProviders()[providerId]?.name || providerId
 
-        addLog({
-          timestamp: new Date().toISOString(),
-          providerId,
-          model: getAllProviders()[providerId]?.model || providerId,
-          latency,
-          tokens: result.tokens,
-          status: 'ok',
-          messages,
-          payload: { keyIndex: keyMeta.keyIndex }
-        })
+      return { ...result, providerId, providerLabel, latency }
+    } catch (error) {
+      const latency = Date.now() - startMs
 
-        incrementUsage(providerId)
+      if (error.statusCode === 429) {
+        rateLimitedCount += 1
 
-        return { ...result, providerId, providerLabel, latency, keyIndex: keyMeta.keyIndex }
-      } catch (e) {
-        const latency = Date.now() - startMs
-
-        if (e.statusCode === 429) {
-          setKeyCooldown(providerId, keyMeta.keyIndex, Date.now() + RATE_LIMIT_COOLDOWN_MS)
-          addLog({
-            timestamp: new Date().toISOString(),
-            providerId,
-            model: getAllProviders()[providerId]?.model || providerId,
-            latency,
-            tokens: 0,
-            status: 'rate_limited',
-            errorMessage: e.message.slice(0, 200),
-            messages,
-            payload: { keyIndex: keyMeta.keyIndex }
-          })
-
-          const target = findNextTarget(order, providerId)
-          if (target) {
-            showToast(
-              `${describeProviderKey(getAllProviders()[providerId]?.name || providerId, keyMeta.keyIndex)} rate limited - switching to ${describeProviderKey(target.providerName, target.keyIndex)}`,
-              'warning',
-              4000
-            )
-          }
-
-          continue
+        const nextProviderId = findNextConfiguredProvider(order, providerId)
+        if (nextProviderId) {
+          const currentName = getAllProviders()[providerId]?.name || providerId
+          const nextName = getAllProviders()[nextProviderId]?.name || nextProviderId
+          showToast(`${currentName} is rate limited - switching to ${nextName}`, 'warning', 4000)
         }
 
-        addLog({
-          timestamp: new Date().toISOString(),
-          providerId,
-          model: getAllProviders()[providerId]?.model || providerId,
-          latency,
-          tokens: 0,
-          status: 'error',
-          errorMessage: e.message.slice(0, 200),
-          messages,
-          payload: { keyIndex: keyMeta.keyIndex }
-        })
-        errors.push({ providerId, error: e.message })
-        break
+        continue
       }
+
+      errors.push({ providerId, error: error.message })
     }
+  }
+
+  if (rateLimitedCount > 0 && errors.length === 0) {
+    throw new Error('All configured keys are currently rate limited or cooling down')
   }
 
   if (errors.length === 0) {
     throw new Error('No API keys configured')
   }
-  throw new Error('All providers failed: ' + errors.map(e => e.providerId + ' (' + e.error.slice(0, 30) + ')').join(', '))
+
+  throw new Error('All providers failed: ' + errors.map(error => `${error.providerId} (${error.error.slice(0, 30)})`).join(', '))
 }
 
-async function routePool(messages, onChunk) {
+async function routePool(messages) {
   const order = getProviderOrder()
   const races = []
 
   for (const providerId of order) {
-    const apiKey = getApiKey(providerId)
-    if (!apiKey) continue
+    if (!getConfiguredKeyCount(providerId)) {
+      continue
+    }
 
     const healthy = await isHealthy(providerId)
-    if (!healthy) continue
+    if (!healthy) {
+      continue
+    }
 
     races.push(
       (async () => {
         const startMs = Date.now()
+
         try {
-          const result = await callProvider(providerId, messages, apiKey, null)
+          const result = await callProvider(providerId, messages, null, null)
           const latency = Date.now() - startMs
           const providerLabel = getAllProviders()[providerId]?.name || providerId
-
-          addLog({
-            timestamp: new Date().toISOString(),
-            providerId,
-            model: getAllProviders()[providerId]?.model || providerId,
-            latency,
-            tokens: result.tokens,
-            status: 'ok',
-            messages
-          })
 
           return {
             ...result,
@@ -154,19 +101,10 @@ async function routePool(messages, onChunk) {
             latency,
             isWinner: true
           }
-        } catch (e) {
+        } catch (error) {
           const latency = Date.now() - startMs
-          addLog({
-            timestamp: new Date().toISOString(),
-            providerId,
-            model: getAllProviders()[providerId]?.model || providerId,
-            latency,
-            tokens: 0,
-            status: 'raced',
-            errorMessage: e.message.slice(0, 100),
-            messages
-          })
-          throw new Error(providerId + ': ' + e.message)
+
+          throw new Error(providerId + ': ' + error.message)
         }
       })()
     )
@@ -177,44 +115,27 @@ async function routePool(messages, onChunk) {
   }
 
   let winner
+
   try {
     winner = await Promise.any(races)
-  } catch (e) {
-    if (e instanceof AggregateError) {
-      const msgs = e.errors.map(err => err.message)
-        .join(', ')
-      throw new Error(
-        'All providers failed in pool mode: ' + msgs
-      )
+  } catch (error) {
+    if (error instanceof AggregateError) {
+      const messages = error.errors.map(entry => entry.message).join(', ')
+      throw new Error('All providers failed in pool mode: ' + messages)
     }
-    throw e
+
+    throw error
   }
-  incrementUsage(winner.providerId)
   return winner
 }
 
-function findNextTarget(order, currentProviderId) {
+function findNextConfiguredProvider(order, currentProviderId) {
   const currentIndex = order.indexOf(currentProviderId)
-  const allProviders = getAllProviders()
-
-  const sameProviderTarget = getNextAvailableKey(currentProviderId, { advance: false })
-  if (sameProviderTarget?.apiKey) {
-    return {
-      providerId: currentProviderId,
-      providerName: allProviders[currentProviderId]?.name || currentProviderId,
-      keyIndex: sameProviderTarget.keyIndex
-    }
-  }
 
   for (let index = currentIndex + 1; index < order.length; index += 1) {
     const providerId = order[index]
-    const nextKey = getNextAvailableKey(providerId, { advance: false })
-    if (!nextKey?.apiKey) continue
-
-    return {
-      providerId,
-      providerName: allProviders[providerId]?.name || providerId,
-      keyIndex: nextKey.keyIndex
+    if (getConfiguredKeyCount(providerId) > 0) {
+      return providerId
     }
   }
 

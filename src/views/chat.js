@@ -376,6 +376,7 @@ async function handleSendMessage() {
       messagesContainer.scrollTop = messagesContainer.scrollHeight
     }
   } finally {
+    await window.app?.refreshTelemetry?.()
     state.sending = false
     updateSendButton()
     updateTokenFooter()

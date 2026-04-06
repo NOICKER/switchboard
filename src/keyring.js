@@ -41,17 +41,39 @@ export function getConfiguredKeyCount(providerId) {
 }
 
 export function getKeyCooldownId(providerId, keyIndex) {
-  return `${providerId}_${keyIndex}`
+  const apiKey = typeof keyIndex === 'number'
+    ? getProviderKeys(providerId, { includeEmpty: true })[keyIndex]
+    : keyIndex
+
+  if (!apiKey) {
+    return null
+  }
+
+  return `${providerId}:${apiKey}`
 }
 
 export function getKeyCooldown(providerId, keyIndex) {
   pruneExpiredCooldowns()
-  return state.keyCooldowns[getKeyCooldownId(providerId, keyIndex)] || 0
+  const cooldownId = getKeyCooldownId(providerId, keyIndex)
+  return cooldownId ? (state.keyCooldowns[cooldownId] || 0) : 0
 }
 
 export function setKeyCooldown(providerId, keyIndex, expiresAt) {
-  state.keyCooldowns[getKeyCooldownId(providerId, keyIndex)] = expiresAt
+  const cooldownId = getKeyCooldownId(providerId, keyIndex)
+  if (!cooldownId) {
+    return
+  }
+
+  state.keyCooldowns[cooldownId] = expiresAt
   persist()
+}
+
+export function clearKeyCooldown(providerId, keyIndex) {
+  const cooldownId = getKeyCooldownId(providerId, keyIndex)
+  if (cooldownId && cooldownId in (state.keyCooldowns || {})) {
+    delete state.keyCooldowns[cooldownId]
+    persist()
+  }
 }
 
 export function isKeyCoolingDown(providerId, keyIndex) {
@@ -63,7 +85,8 @@ export function pruneExpiredCooldowns() {
   const now = Date.now()
 
   Object.entries(state.keyCooldowns || {}).forEach(([cooldownId, expiresAt]) => {
-    if (!expiresAt || expiresAt <= now) {
+    const isLegacySlotCooldown = !cooldownId.includes(':')
+    if (isLegacySlotCooldown || !expiresAt || expiresAt <= now) {
       delete state.keyCooldowns[cooldownId]
       changed = true
     }
@@ -89,8 +112,15 @@ export function setProviderKeys(providerId, keys) {
 
 export function updateProviderKey(providerId, keyIndex, value) {
   const keys = getProviderKeys(providerId, { includeEmpty: true })
-  keys[keyIndex] = String(value ?? '').trim()
+  const nextValue = String(value ?? '').trim()
+  const previousValue = keys[keyIndex] || ''
+
+  keys[keyIndex] = nextValue
   setProviderKeys(providerId, keys)
+
+  if (nextValue && nextValue !== previousValue) {
+    clearKeyCooldown(providerId, keyIndex)
+  }
 }
 
 export function addProviderKey(providerId) {

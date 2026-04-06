@@ -26,6 +26,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
   padding: 22px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
@@ -36,10 +37,13 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .chat-header-actions {
   margin-left: auto;
+  justify-content: flex-end;
 }
 
 .provider-badge {
@@ -88,6 +92,7 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .routing-pill--pool {
@@ -233,6 +238,7 @@
   font-size: clamp(32px, 5vw, 48px);
   line-height: 0.98;
   letter-spacing: -0.06em;
+  max-width: 12ch;
 }
 
 .chat-empty p {
@@ -502,6 +508,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .chat-composer-meta {
@@ -544,6 +551,10 @@
   box-shadow: 0 14px 32px rgba(124, 140, 255, 0.24);
 }
 
+.send-btn .send-text {
+  white-space: nowrap;
+}
+
 .send-btn:hover {
   transform: translateY(-1px);
 }
@@ -562,15 +573,22 @@
   font-size: 12px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   .chat-header {
-    flex-direction: column;
     align-items: flex-start;
   }
 
   .chat-header-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .chat-composer-footer {
+    align-items: stretch;
+  }
+
+  .send-btn {
+    margin-left: auto;
   }
 }
 
@@ -596,6 +614,7 @@
 
   .send-btn {
     width: 100%;
+    margin-left: 0;
   }
 }
 

@@ -430,3 +430,35 @@ kbd {
 .modal-card--help {
   max-width: 620px;
 }
+
+.modal-card--auth {
+  max-width: 520px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.topnav-account-btn {
+  min-width: 112px;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .auth-actions {
+    flex-direction: column-reverse;
+  }
+
+  .auth-actions .btn-primary,
+  .auth-actions .btn-secondary {
+    width: 100%;
+  }
+}

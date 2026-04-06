@@ -3,8 +3,11 @@ import { PROVIDERS } from '../providers.js'
 
 export function renderUsageView() {
   const logs = state.logs || []
-  const stats = calculateStats(logs)
-  const providerBreakdown = calculateProviderBreakdown(logs)
+  const backendUsage = state.usageAnalytics || null
+  const stats = backendUsage
+    ? mapUsageSummary(backendUsage.summary)
+    : calculateStats(logs)
+  const providerBreakdown = backendUsage?.providerBreakdown || calculateProviderBreakdown(logs)
 
   return `
     <div class="view" id="view-usage">
@@ -13,7 +16,7 @@ export function renderUsageView() {
           <span class="page-eyebrow">Analytics</span>
           <h1 class="page-title">Usage</h1>
           <p class="page-subtitle">
-            Daily request volume, provider performance, and latency trends based on local telemetry.
+            Daily request volume, provider performance, and latency trends based on backend telemetry.
           </p>
         </header>
 
@@ -168,6 +171,17 @@ function calculateProviderBreakdown(logs) {
   })
 
   return breakdown
+}
+
+function mapUsageSummary(summary = {}) {
+  return {
+    totalRequests: summary.totalRequests || 0,
+    totalTokens: summary.totalTokens || 0,
+    avgLatency: summary.avgLatency || 0,
+    successRate: summary.successRate || 0,
+    fastestProvider: PROVIDERS[summary.fastestProvider]?.name || summary.fastestProvider || 'N/A',
+    mostUsed: PROVIDERS[summary.mostUsed]?.name || summary.mostUsed || 'N/A'
+  }
 }
 
 function renderProviderChart(breakdown) {

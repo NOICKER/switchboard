@@ -348,7 +348,7 @@ export async function refreshTelemetry() {
 
 function hydrateLocalFallbackState() {
   state.authUser = null
-  state.apiKeys = {}
+  state.apiKeys = load('apiKeys', {})
   state.logs = []
   state.usage = { date: '', providers: {} }
   state.usageAnalytics = null

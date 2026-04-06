@@ -1,12 +1,12 @@
-import { state } from './state.js'
-import { PROVIDERS, getApiKey } from './providers.js'
-import { getNextAvailableKey } from './keyring.js'
+import { testProviderViaBackend } from './backend-api.js'
+import { getAllProviders } from './providers.js'
+import { getProviderKeys } from './keyring.js'
 
 const healthCache = new Map() // { providerId: { healthy: bool, timestamp: ms } }
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export async function isHealthy(providerId) {
-  const apiKey = getNextAvailableKey(providerId, { advance: false })?.apiKey || getApiKey(providerId)
+  const apiKey = getProviderKeys(providerId)[0]
   if (!apiKey) return false
 
   const cached = healthCache.get(providerId)
@@ -17,10 +17,10 @@ export async function isHealthy(providerId) {
   }
 
   try {
-    const p = PROVIDERS[providerId]
-    if (!p?.healthEndpoint) return true // Skip health check for providers without endpoint
+    const provider = getAllProviders()[providerId]
+    if (!provider) return false
 
-    const healthy = await checkProviderHealth(providerId, p, apiKey)
+    const healthy = await checkProviderHealth(providerId, provider)
     healthCache.set(providerId, { healthy, timestamp: now })
     return healthy
   } catch (e) {
@@ -39,60 +39,19 @@ export function getLastHealthStatus(providerId) {
 
 // INTERNAL
 
-async function checkProviderHealth(providerId, provider, apiKey) {
-  if (providerId === 'gemini') {
-    return checkGeminiHealth(provider, apiKey)
-  } else if (providerId === 'huggingface') {
-    // HuggingFace doesn't have a free health endpoint
-    return true
-  } else {
-    // OpenAI-compatible
-    return checkOpenAIHealth(provider, apiKey, providerId)
-  }
-}
-
-async function checkOpenAIHealth(provider, apiKey, providerId) {
-  const url = provider.healthEndpoint
-  const headers = {
-    'Authorization': 'Bearer ' + apiKey,
-    'Content-Type': 'application/json'
-  }
-
-  if (providerId === 'openrouter') {
-    headers['HTTP-Referer'] = window.location.href
-  }
-
+async function checkProviderHealth(providerId, provider) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const resp = await fetch(url, {
-      method: 'GET',
-      headers,
+    const result = await testProviderViaBackend({
+      providerId,
+      provider,
+      apiKey: null,
       signal: controller.signal
     })
     clearTimeout(timeout)
-    return resp.ok
-  } catch (e) {
-    clearTimeout(timeout)
-    return false
-  }
-}
-
-async function checkGeminiHealth(provider, apiKey) {
-  const url = provider.healthEndpoint
-    .replace('{apiKey}', apiKey)
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
-
-  try {
-    const resp = await fetch(url, {
-      method: 'GET',
-      signal: controller.signal
-    })
-    clearTimeout(timeout)
-    return resp.ok
+    return result?.ok === true
   } catch (e) {
     clearTimeout(timeout)
     return false

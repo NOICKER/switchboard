@@ -8,7 +8,17 @@ import './styles/logs.css'
 import './styles/usage.css'
 import './styles/toast.css'
 
-import { state, persist, loadState } from './state.js'
+import { state, defaultSystemPrompts, loadState } from './state.js'
+import {
+  ensureBackendReachable,
+  fetchCurrentUser,
+  fetchKeysFromBackend,
+  fetchLogsFromBackend,
+  fetchUsageFromBackend,
+  fetchWorkspaceFromBackend,
+  isBackendOfflineError,
+  syncWorkspaceToBackend
+} from './backend-api.js'
 import { renderSidebar, attachSidebarHandlers } from './components/sidebar.js'
 import { renderTopnav, attachTopnavHandlers } from './components/topnav.js'
 import { attachKeyboardShortcuts } from './components/shortcuts.js'
@@ -19,10 +29,14 @@ import { renderPromptsView, attachPromptsHandlers } from './views/prompts.js'
 import { renderLogsView, attachLogsHandlers } from './views/logs.js'
 import { renderUsageView, attachUsageHandlers } from './views/usage.js'
 
-// Export app to global scope for other modules to use
+let workspaceSyncTimer = null
+
 window.app = {
   state,
-  renderApp
+  renderApp,
+  refreshTelemetry,
+  refreshSessionState,
+  queueWorkspaceSync
 }
 
 export function renderApp() {
@@ -34,8 +48,7 @@ export function renderApp() {
 
   clearResponseCopyMap()
 
-  // Render main layout
-  const mainHtml = `
+  root.innerHTML = `
     ${renderTopnav()}
     <div class="app-body">
       ${renderSidebar()}
@@ -45,9 +58,6 @@ export function renderApp() {
     </div>
   `
 
-  root.innerHTML = mainHtml
-
-  // Attach all handlers
   attachTopnavHandlers()
   attachSidebarHandlers()
   attachCurrentViewHandlers()
@@ -90,19 +100,135 @@ function attachCurrentViewHandlers() {
   }
 }
 
-// Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
-  loadState()
-  renderApp()
-  attachKeyboardShortcuts()
+  bootstrapApp()
 
-  // Re-render on state changes from other tabs
   let storageDebounce
   window.addEventListener('storage', () => {
     clearTimeout(storageDebounce)
-    storageDebounce = setTimeout(() => {
+    storageDebounce = setTimeout(async () => {
       loadState()
+      await refreshSessionState()
       renderApp()
     }, 150)
   })
 })
+
+async function bootstrapApp() {
+  loadState()
+  await refreshSessionState()
+  renderApp()
+  attachKeyboardShortcuts()
+}
+
+export async function refreshSessionState() {
+  try {
+    await ensureBackendReachable()
+    state.backendAvailable = true
+  } catch (error) {
+    state.backendAvailable = false
+    hydrateLocalFallbackState()
+    return
+  }
+
+  await Promise.all([
+    hydrateAuthFromBackend(),
+    hydrateKeysFromBackend(),
+    hydrateWorkspaceFromBackend(),
+    refreshTelemetry()
+  ])
+}
+
+async function hydrateAuthFromBackend() {
+  try {
+    state.authUser = await fetchCurrentUser()
+  } catch (error) {
+    state.authUser = null
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to hydrate auth user', error)
+    }
+  }
+}
+
+async function hydrateKeysFromBackend() {
+  try {
+    state.apiKeys = await fetchKeysFromBackend()
+  } catch (error) {
+    state.apiKeys = {}
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to hydrate backend keys', error)
+    }
+  }
+}
+
+async function hydrateWorkspaceFromBackend() {
+  try {
+    const workspace = await fetchWorkspaceFromBackend()
+    if (workspace) {
+      state.chats = workspace.chats || []
+      state.systemPrompts = workspace.prompts?.length
+        ? workspace.prompts
+        : defaultSystemPrompts()
+      state.activePromptId = workspace.activePromptId || state.systemPrompts[0]?.id || null
+      state.currentChatId = workspace.currentChatId || state.chats[0]?.id || null
+      return
+    }
+  } catch (error) {
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to hydrate workspace', error)
+    }
+  }
+
+  state.chats = state.chats || []
+  state.systemPrompts = state.systemPrompts?.length ? state.systemPrompts : defaultSystemPrompts()
+  state.activePromptId = state.activePromptId || state.systemPrompts[0]?.id || null
+  state.currentChatId = state.currentChatId || state.chats[0]?.id || null
+
+  try {
+    await syncWorkspaceToBackend()
+  } catch (error) {
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to seed workspace', error)
+    }
+  }
+}
+
+export async function refreshTelemetry() {
+  try {
+    const [logs, usageAnalytics] = await Promise.all([
+      fetchLogsFromBackend(),
+      fetchUsageFromBackend()
+    ])
+
+    state.logs = logs
+    state.usageAnalytics = usageAnalytics
+    state.usage = usageAnalytics?.dailyUsage || { date: '', providers: {} }
+  } catch (error) {
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to refresh backend telemetry', error)
+    }
+  }
+}
+
+function hydrateLocalFallbackState() {
+  state.authUser = null
+  state.apiKeys = {}
+  state.logs = []
+  state.usage = { date: '', providers: {} }
+  state.usageAnalytics = null
+  state.chats = state.chats?.length ? state.chats : []
+  state.systemPrompts = state.systemPrompts?.length ? state.systemPrompts : defaultSystemPrompts()
+  state.activePromptId = state.activePromptId || state.systemPrompts[0]?.id || null
+  state.currentChatId = state.currentChatId || state.chats[0]?.id || null
+}
+
+export function queueWorkspaceSync() {
+  clearTimeout(workspaceSyncTimer)
+  workspaceSyncTimer = setTimeout(async () => {
+    try {
+      await syncWorkspaceToBackend()
+    } catch (error) {
+      console.warn('Failed to sync workspace', error)
+    }
+  }, 150)
+}

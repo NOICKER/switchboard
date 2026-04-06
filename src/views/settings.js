@@ -1,7 +1,9 @@
 import { state, persist, getUsage } from '../state.js'
+import { syncKeysToBackend, testProviderViaBackend } from '../backend-api.js'
 import { getAllProviders, getProviderOrder, PROVIDERS } from '../providers.js'
 import { clearHealthCache } from '../health.js'
-import { addProviderKey, getProviderKeys, removeProviderKey, setProviderKeys, updateProviderKey } from '../keyring.js'
+import { addProviderKey, clearKeyCooldown, getProviderKeys, removeProviderKey, setProviderKeys, updateProviderKey } from '../keyring.js'
+import { showErrorToast, showWarningToast } from '../components/toast.js'
 
 export function renderSettingsView() {
   const providers = getAllProviders()
@@ -13,8 +15,14 @@ export function renderSettingsView() {
           <span class="page-eyebrow">Configuration</span>
           <h1 class="page-title">Provider Settings</h1>
           <p class="page-subtitle">
-            Configure API keys for local routing. Keys stay in your browser and are never sent to a backend.
+            Configure API keys for routing. Keys are synced to your backend session so provider calls no longer depend on browser-stored secrets.
           </p>
+          ${state.backendAvailable
+            ? ''
+            : `<div class="settings-inline-alert">
+                <strong>Backend offline</strong>
+                <span>Key sync, provider tests, account features, and telemetry are unavailable until the backend server is running.</span>
+              </div>`}
         </header>
 
         <div class="settings-stack">
@@ -109,7 +117,16 @@ export function renderSettingsView() {
                 <label class="form-group form-group--full">
                   <span>Base URL</span>
                   <input type="url" id="provider-base-url" placeholder="https://api.example.com" required />
-                  <small>Must expose a compatible <code>/chat/completions</code> endpoint.</small>
+                  <small>Use the root API base for the selected adapter type. Backend adapters currently support OpenAI-compatible, Anthropic, and Gemini-style providers.</small>
+                </label>
+
+                <label class="form-group">
+                  <span>Adapter Type</span>
+                  <select id="provider-adapter-type">
+                    <option value="openai">OpenAI-compatible</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="gemini">Gemini</option>
+                  </select>
                 </label>
 
                 <label class="form-group form-group--full">
@@ -136,10 +153,10 @@ export function renderSettingsView() {
           </section>
 
           <div class="settings-actions">
-            <button id="save-settings-btn" class="btn-primary" type="button">Save Configuration</button>
-          </div>
+          <button id="save-settings-btn" class="btn-primary" type="button" ${state.backendAvailable ? '' : 'disabled'}>Save Configuration</button>
         </div>
       </div>
+    </div>
     </div>
   `
 }
@@ -190,16 +207,24 @@ export function attachSettingsHandlers() {
   }
 
   if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener('click', () => {
-      persist()
-      const originalLabel = saveSettingsBtn.textContent
-      saveSettingsBtn.textContent = 'Saved'
+    saveSettingsBtn.addEventListener('click', async () => {
+      syncAllProviderKeyInputs()
       saveSettingsBtn.disabled = true
 
-      setTimeout(() => {
-        saveSettingsBtn.textContent = originalLabel
+      try {
+        await syncKeysToBackend()
+        persist()
+        const originalLabel = saveSettingsBtn.textContent
+        saveSettingsBtn.textContent = 'Saved'
+
+        setTimeout(() => {
+          saveSettingsBtn.textContent = originalLabel
+          saveSettingsBtn.disabled = false
+        }, 1400)
+      } catch (error) {
+        showErrorToast(error.message || 'Failed to sync keys to backend.')
         saveSettingsBtn.disabled = false
-      }, 1400)
+      }
     })
   }
 
@@ -219,13 +244,14 @@ export function attachSettingsHandlers() {
 
   const apiKeyInputs = document.querySelectorAll('.api-key-input')
   apiKeyInputs.forEach(input => {
-    input.addEventListener('input', event => {
-      const providerId = input.dataset.providerId
-      const keyIndex = parseInt(input.dataset.keyIndex || '0', 10)
-      updateProviderKey(providerId, keyIndex, event.target.value)
+    const syncInput = () => {
+      syncProviderKeyInput(input)
       const providerRow = input.closest('.provider-row')
       providerRow?.classList.remove('provider-row--error')
-    })
+    }
+
+    input.addEventListener('input', syncInput)
+    input.addEventListener('change', syncInput)
   })
 
   const addKeyButtons = document.querySelectorAll('.add-provider-key-btn')
@@ -261,6 +287,7 @@ export function attachSettingsHandlers() {
         state.customProviders = state.customProviders.filter(provider => provider.id !== id)
         delete state.apiKeys[id]
         persist()
+        syncKeysToBackend().catch(() => {})
         window.app?.renderApp?.()
       }
     })
@@ -380,7 +407,7 @@ function renderProviderRows(allProviders) {
         </div>
 
         <div class="row-right">
-          <button class="test-api-btn btn-secondary" type="button" data-provider-id="${id}">Test</button>
+          <button class="test-api-btn btn-secondary" type="button" data-provider-id="${id}" ${state.backendAvailable ? '' : 'disabled'}>Test</button>
           ${isCustom ? `<button class="delete-provider-btn btn-icon btn-icon--subtle" type="button" data-custom-id="${id}" title="Remove provider">${trashIcon()}</button>` : ''}
         </div>
       </div>
@@ -417,6 +444,7 @@ function handleAddProvider(event) {
   const name = document.getElementById('provider-name')?.value?.trim()
   const baseUrl = document.getElementById('provider-base-url')?.value?.trim()
   const model = document.getElementById('provider-model')?.value?.trim()
+  const adapterType = document.getElementById('provider-adapter-type')?.value || 'openai'
   const apiKey = document.getElementById('provider-api-key')?.value?.trim()
   const dailyLimit = parseInt(document.getElementById('provider-daily-limit')?.value || '100', 10)
 
@@ -432,12 +460,13 @@ function handleAddProvider(event) {
     name,
     baseUrl,
     model,
-    apiKey,
+    adapterType,
     dailyLimit
   })
 
   setProviderKeys(id, [apiKey])
   persist()
+  syncKeysToBackend().catch(() => {})
 
   document.getElementById('provider-form')?.reset()
   document.getElementById('custom-provider-form')?.classList.add('hidden')
@@ -446,6 +475,7 @@ function handleAddProvider(event) {
 
 async function testProvider(button) {
   const providerId = button.dataset.providerId
+  syncProviderInputsForProvider(providerId)
   const apiKey = getProviderKeys(providerId)[0]
 
   if (!apiKey) {
@@ -462,42 +492,29 @@ async function testProvider(button) {
 
   try {
     const provider = getAllProviders()[providerId]
-    let url = provider?.healthEndpoint
-
-    if (!url) {
-      button.textContent = 'No check'
-      return
-    }
-
-    if (providerId === 'gemini') {
-      url = url.replace('{apiKey}', apiKey)
-    }
-
     const controller = new AbortController()
-    timeout = setTimeout(
-      () => controller.abort(), 10000
-    )
+    timeout = setTimeout(() => controller.abort(), 10000)
+    await syncKeysToBackend()
 
-    const response = await fetch(url, {
-      headers: providerId === 'gemini'
-        ? {}
-        : { Authorization: `Bearer ${apiKey}` },
+    await testProviderViaBackend({
+      providerId,
+      provider,
+      apiKey: null,
       signal: controller.signal
     })
     clearTimeout(timeout)
 
-    if (response.ok) {
-      button.textContent = 'Connected'
-      button.classList.add('is-success')
-    } else {
-      row?.classList.add('provider-row--error')
-      button.textContent = 'Failed'
-      button.classList.add('is-error')
-    }
+    button.textContent = 'Connected'
+    button.classList.add('is-success')
   } catch (error) {
     row?.classList.add('provider-row--error')
     button.textContent = 'Failed'
     button.classList.add('is-error')
+    if (providerId !== 'gemini' && getAllProviders()[providerId]?.isCustom && /CORS|preflight|blocked/i.test(error.message)) {
+      showErrorToast('This custom provider is blocked before the backend can complete the request. Verify the endpoint or add a backend-side adapter.')
+    } else {
+      showWarningToast(error.message || 'Provider test failed.')
+    }
   } finally {
     clearTimeout(timeout)
     setTimeout(() => {
@@ -525,6 +542,26 @@ function reorderProviders(fromId, toId) {
     clearHealthCache()
     window.app?.renderApp?.()
   }
+}
+
+function syncProviderKeyInput(input) {
+  const providerId = input.dataset.providerId
+  const keyIndex = parseInt(input.dataset.keyIndex || '0', 10)
+  updateProviderKey(providerId, keyIndex, input.value)
+  clearHealthCache()
+  clearKeyCooldown(providerId, keyIndex)
+}
+
+function syncProviderInputsForProvider(providerId) {
+  document
+    .querySelectorAll(`.api-key-input[data-provider-id="${providerId}"]`)
+    .forEach(input => syncProviderKeyInput(input))
+}
+
+function syncAllProviderKeyInputs() {
+  document
+    .querySelectorAll('.api-key-input')
+    .forEach(input => syncProviderKeyInput(input))
 }
 
 function renderKeyUsageRow(provider, keyIndex, requestCount) {

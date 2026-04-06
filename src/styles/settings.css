@@ -21,6 +21,21 @@
   gap: 20px;
 }
 
+.settings-inline-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  color: #ffe7b8;
+}
+
+.settings-inline-alert strong {
+  color: #fff4d6;
+}
+
 .settings-card {
   padding: 24px;
   border-radius: 24px;
@@ -200,6 +215,7 @@
 .row-right {
   gap: 10px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .provider-avatar {
@@ -409,5 +425,11 @@
   .form-actions,
   .settings-actions {
     flex-direction: column;
+  }
+
+  .form-actions .btn-primary,
+  .form-actions .btn-secondary,
+  .settings-actions .btn-primary {
+    width: 100%;
   }
 }

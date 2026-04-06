@@ -1,4 +1,5 @@
-import { state, persist } from '../state.js'
+import { state } from '../state.js'
+import { clearLogsOnBackend } from '../backend-api.js'
 import { PROVIDERS } from '../providers.js'
 
 export function renderLogsView() {
@@ -55,7 +56,7 @@ export function renderLogsView() {
         <footer class="logs-footer">
           <div class="logs-footer-status">
             <span class="system-dot" aria-hidden="true"></span>
-            <span>Telemetry stored locally</span>
+            <span>Telemetry stored on backend</span>
           </div>
 
           <button id="clear-logs-btn" class="btn-secondary btn-secondary--danger" type="button">
@@ -81,11 +82,14 @@ export function attachLogsHandlers() {
   const clearButton = document.getElementById('clear-logs-btn')
   if (clearButton) {
     clearButton.addEventListener('click', () => {
-      if (confirm('Clear all logs? This cannot be undone.')) {
-        state.logs = []
-        persist()
-        window.app?.renderApp?.()
-      }
+      if (!confirm('Clear all logs? This cannot be undone.')) return
+
+      clearLogsOnBackend()
+        .then(() => window.app?.refreshTelemetry?.())
+        .then(() => window.app?.renderApp?.())
+        .catch(error => {
+          console.error('Failed to clear backend logs', error)
+        })
     })
   }
 

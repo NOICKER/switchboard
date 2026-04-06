@@ -10,7 +10,7 @@ const NAV_ITEMS = [
 
 export function renderSidebar() {
   return `
-    <aside class="sidebar" id="app-sidebar">
+    <aside class="sidebar ${state.sidebarOpen ? '' : 'hidden'}" id="app-sidebar">
       <div class="sidebar-brand">
         <div class="brand-mark" aria-hidden="true">
           ${brandIcon()}
@@ -48,8 +48,8 @@ export function renderSidebar() {
       </nav>
 
       <div class="sidebar-footer">
-        <span class="system-dot" aria-hidden="true"></span>
-        <span>System online</span>
+        <span class="system-dot ${state.backendAvailable ? '' : 'system-dot--offline'}" aria-hidden="true"></span>
+        <span>${state.backendAvailable ? 'Backend connected' : 'Offline mode'}</span>
       </div>
     </aside>
   `
@@ -61,6 +61,9 @@ export function attachSidebarHandlers() {
     link.addEventListener('click', () => {
       const view = link.dataset.view
       state.currentView = view
+      if (typeof window !== 'undefined' && window.innerWidth < 1280) {
+        state.sidebarOpen = false
+      }
       window.app?.renderApp?.()
     })
   })
@@ -71,6 +74,9 @@ export function attachSidebarHandlers() {
       evt.stopPropagation()
       newChat()
       state.currentView = 'chat'
+      if (typeof window !== 'undefined' && window.innerWidth < 1280) {
+        state.sidebarOpen = false
+      }
       window.app?.renderApp?.()
     })
   }
@@ -85,6 +91,9 @@ export function attachChatHistoryHandlers(root = document) {
       const id = item.dataset.chatId
       state.currentChatId = id
       state.currentView = 'chat'
+      if (typeof window !== 'undefined' && window.innerWidth < 1280) {
+        state.sidebarOpen = false
+      }
       window.app?.renderApp?.()
     })
   })
