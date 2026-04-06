@@ -1,4 +1,14 @@
 // STATE MANAGEMENT
+const listeners = new Set()
+export function subscribe(fn) {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
+}
+
+export function notify() {
+  listeners.forEach(fn => fn())
+}
+
 export const state = {
   currentView: 'chat',
   currentChatId: null,
@@ -20,6 +30,10 @@ export const state = {
   customProviders: [],
   providerOrder: [],
   usage: { date: '', providers: {} },
+  usageAnalytics: null,
+  authUser: null,
+  backendAvailable: true,
+  sidebarOpen: true,
   totalTokens: 0
 }
 
@@ -40,67 +54,54 @@ export function load(key, def) {
 }
 
 export function persist() {
-  save('chats', state.chats)
-  save('apiKeys', state.apiKeys)
-  save('keyRotation', state.keyRotation)
-  save('keyCooldowns', state.keyCooldowns)
-  save('keyStatus', state.keyStatus)
-  save('systemPrompts', state.systemPrompts)
-  save('activePromptId', state.activePromptId)
-  save('logs', state.logs)
   save('providerOverride', state.providerOverride)
   save('totalTokens', state.totalTokens)
-  save('customProviders', state.customProviders)
+  save('customProviders', sanitizeCustomProviders(state.customProviders))
   save('providerOrder', state.providerOrder)
   save('poolMode', state.poolMode)
   save('streaming', state.streaming)
-  save('usage', state.usage)
+  save('sidebarOpen', state.sidebarOpen)
+  save('apiKeys', state.apiKeys)
+
+  if (typeof window !== 'undefined' && window.app?.queueWorkspaceSync) {
+    window.app.queueWorkspaceSync()
+  }
+  notify()
 }
 
 export function loadState() {
-  state.chats = load('chats', [])
-  state.apiKeys = normalizeStoredApiKeys(load('apiKeys', {}))
-  state.keyRotation = load('keyRotation', {})
-  state.keyCooldowns = load('keyCooldowns', {})
-  state.keyStatus = load('keyStatus', {})
-  state.systemPrompts = load('systemPrompts', defaultSystemPrompts())
-  state.activePromptId = load('activePromptId', 
-    state.systemPrompts[0]?.id || null)
-  state.logs = load('logs', [])
+  state.chats = []
+  state.apiKeys = load('apiKeys', {})
+  state.keyRotation = {}
+  state.keyCooldowns = {}
+  state.keyStatus = {}
+  state.systemPrompts = defaultSystemPrompts()
+  state.activePromptId = state.systemPrompts[0]?.id || null
+  state.logs = []
   state.providerOverride = load('providerOverride', null)
   state.totalTokens = load('totalTokens', 0)
-  state.customProviders = load('customProviders', [])
+  state.customProviders = sanitizeCustomProviders(load('customProviders', []))
   state.providerOrder = load('providerOrder', [])
   state.poolMode = load('poolMode', false)
   state.streaming = load('streaming', true)
-  state.usage = load('usage', { date: '', providers: {} })
-  
-  if (state.chats.length > 0) {
-    state.currentChatId = state.chats[0].id
-  }
+  state.usage = { date: '', providers: {} }
+  state.usageAnalytics = null
+  state.authUser = null
+  state.backendAvailable = true
+  state.sidebarOpen = typeof window !== 'undefined' && window.innerWidth < 1280
+    ? false
+    : load('sidebarOpen', true)
 }
 
-function normalizeStoredApiKeys(apiKeys) {
-  const normalized = {}
-
-  Object.entries(apiKeys || {}).forEach(([providerId, value]) => {
-    if (Array.isArray(value)) {
-      normalized[providerId] = value
-        .map(key => String(key ?? '').trim())
-        .filter(Boolean)
-      return
-    }
-
-    if (typeof value === 'string') {
-      const trimmed = value.trim()
-      normalized[providerId] = trimmed ? [trimmed] : []
-      return
-    }
-
-    normalized[providerId] = []
-  })
-
-  return normalized
+function sanitizeCustomProviders(customProviders) {
+  return (customProviders || []).map(provider => ({
+    id: provider.id,
+    name: provider.name,
+    baseUrl: provider.baseUrl,
+    model: provider.model,
+    adapterType: provider.adapterType || 'openai',
+    dailyLimit: provider.dailyLimit
+  }))
 }
 
 // ID GENERATION
@@ -158,18 +159,12 @@ Do not write introductory or concluding pleasantries. Output only the review.`
 
 // USAGE TRACKING
 export function checkUsageReset() {
-  const today = new Date().toISOString().split('T')[0]
-  if (state.usage.date !== today) {
-    state.usage = { date: today, providers: {} }
-    save('usage', state.usage)
-  }
+  return state.usage
 }
 
 export function incrementUsage(providerId) {
-  checkUsageReset()
-  state.usage.providers[providerId] = 
+  state.usage.providers[providerId] =
     (state.usage.providers[providerId] || 0) + 1
-  save('usage', state.usage)
 }
 
 export function getUsage(providerId) {
@@ -189,6 +184,7 @@ export function newChat() {
   })
   state.currentChatId = id
   persist()
+  notify()
   return id
 }
 
@@ -202,6 +198,7 @@ export function deleteChat(id) {
     state.currentChatId = state.chats[0]?.id || null
   }
   persist()
+  notify()
 }
 
 // PROMPTS MANAGEMENT
@@ -214,6 +211,7 @@ export function getActiveSystemPrompt() {
 export function setActivePrompt(id) {
   state.activePromptId = id
   persist()
+  notify()
 }
 
 export function getPrompt(id) {
@@ -237,10 +235,136 @@ export function addLog(entry) {
   if (state.logs.length > 500) {
     state.logs = state.logs.slice(0, 500)
   }
-  save('logs', state.logs)
 }
 
 export function clearLogs() {
   state.logs = []
-  persist()
+}
+
+// SESSION & BACKEND HYDRATION
+import {
+  ensureBackendReachable,
+  fetchCurrentUser,
+  fetchKeysFromBackend,
+  fetchLogsFromBackend,
+  fetchUsageFromBackend,
+  fetchWorkspaceFromBackend,
+  isBackendOfflineError,
+  syncWorkspaceToBackend
+} from './backend-api.js'
+
+let workspaceSyncTimer = null
+
+export async function refreshSessionState() {
+  try {
+    await ensureBackendReachable()
+    state.backendAvailable = true
+  } catch (error) {
+    state.backendAvailable = false
+    hydrateLocalFallbackState()
+    notify()
+    return
+  }
+
+  await Promise.all([
+    hydrateAuthFromBackend(),
+    hydrateKeysFromBackend(),
+    hydrateWorkspaceFromBackend(),
+    refreshTelemetry()
+  ])
+  notify()
+}
+
+async function hydrateAuthFromBackend() {
+  try {
+    state.authUser = await fetchCurrentUser()
+  } catch (error) {
+    state.authUser = null
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to hydrate auth user', error)
+    }
+  }
+}
+
+async function hydrateKeysFromBackend() {
+  try {
+    state.apiKeys = await fetchKeysFromBackend()
+  } catch (error) {
+    state.apiKeys = {}
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to hydrate backend keys', error)
+    }
+  }
+}
+
+async function hydrateWorkspaceFromBackend() {
+  try {
+    const workspace = await fetchWorkspaceFromBackend()
+    if (workspace) {
+      state.chats = workspace.chats || []
+      state.systemPrompts = workspace.prompts?.length
+        ? workspace.prompts
+        : defaultSystemPrompts()
+      state.activePromptId = workspace.activePromptId || state.systemPrompts[0]?.id || null
+      state.currentChatId = workspace.currentChatId || state.chats[0]?.id || null
+      return
+    }
+  } catch (error) {
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to hydrate workspace', error)
+    }
+  }
+
+  state.chats = state.chats || []
+  state.systemPrompts = state.systemPrompts?.length ? state.systemPrompts : defaultSystemPrompts()
+  state.activePromptId = state.activePromptId || state.systemPrompts[0]?.id || null
+  state.currentChatId = state.currentChatId || state.chats[0]?.id || null
+
+  try {
+    await syncWorkspaceToBackend()
+  } catch (error) {
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to seed workspace', error)
+    }
+  }
+}
+
+export async function refreshTelemetry() {
+  try {
+    const [logs, usageAnalytics] = await Promise.all([
+      fetchLogsFromBackend(),
+      fetchUsageFromBackend()
+    ])
+
+    state.logs = logs
+    state.usageAnalytics = usageAnalytics
+    state.usage = usageAnalytics?.dailyUsage || { date: '', providers: {} }
+  } catch (error) {
+    if (!isBackendOfflineError(error)) {
+      console.warn('Failed to refresh backend telemetry', error)
+    }
+  }
+}
+
+function hydrateLocalFallbackState() {
+  state.authUser = null
+  state.apiKeys = {}
+  state.logs = []
+  state.usage = { date: '', providers: {} }
+  state.usageAnalytics = null
+  state.chats = state.chats?.length ? state.chats : []
+  state.systemPrompts = state.systemPrompts?.length ? state.systemPrompts : defaultSystemPrompts()
+  state.activePromptId = state.activePromptId || state.systemPrompts[0]?.id || null
+  state.currentChatId = state.currentChatId || state.chats[0]?.id || null
+}
+
+export function queueWorkspaceSync() {
+  clearTimeout(workspaceSyncTimer)
+  workspaceSyncTimer = setTimeout(async () => {
+    try {
+      await syncWorkspaceToBackend()
+    } catch (error) {
+      console.warn('Failed to sync workspace', error)
+    }
+  }, 150)
 }
